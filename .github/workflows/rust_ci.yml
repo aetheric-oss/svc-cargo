@@ -1,0 +1,48 @@
+## DO NOT EDIT!
+# This file was provisioned by Terraform
+# Check file validity at: https://rhysd.github.io/actionlint/
+# https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-Readme.md
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+
+name: Rust Checks
+
+env:
+  TERM: xterm
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make rust-check
+
+  build_and_test_debug:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: make build
+      - name: Test
+        run: make rust-test
+      # Coming soon: grcov + push results to website or service (coveralls, etc.)
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make rust-fmt
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make rust-clippy
