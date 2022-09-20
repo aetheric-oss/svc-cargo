@@ -1,7 +1,7 @@
 //! svc-cargo
 //! Processes flight requests from client applications
 
-use axum::{handler::Handler, Router, Server};
+use axum::{handler::Handler, routing, Router, Server};
 use hyper::Error;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Error> {
     #[derive(OpenApi)]
     #[openapi(
         paths(
-            pubapi::query_flights,
+            pubapi::query_flight,
             pubapi::query_vertiports,
             pubapi::confirm_flight,
             pubapi::cancel_flight
@@ -74,11 +74,15 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .fallback(not_found.into_service())
-        // .route("/100", get(respond_bytes_100))
-        // .route("/1000", get(respond_bytes_1000))
-    ;
+        .route(
+            "/flight",
+            routing::get(pubapi::query_flight)
+                .put(pubapi::confirm_flight)
+                .delete(pubapi::cancel_flight),
+        )
+        .route("/region", routing::get(pubapi::query_vertiports));
 
-    Server::bind(&"0.0.0.0:8000".parse().unwrap())
+    Server::bind(&"localhost:8080".parse().unwrap())
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await

@@ -114,7 +114,7 @@ pub enum ConfirmError {
 /// List all Vertiport items from svc-storage
 #[utoipa::path(
     get,
-    path = "/vertiports/query/{region}",
+    path = "/region",
     params(
         RegionQuery
     ),
@@ -134,7 +134,7 @@ pub async fn query_vertiports() -> Json<Vec<Vertiport>> {
 /// Search `FlightOption`s by query params and return matching `FlightOption`s.
 #[utoipa::path(
     get,
-    path = "/flights/query",
+    path = "/flight",
     params(
         FlightQuery
     ),
@@ -142,7 +142,7 @@ pub async fn query_vertiports() -> Json<Vec<Vertiport>> {
         (status = 200, description = "List possible berths", body = [FlightOption])
     )
 )]
-pub async fn query_flights(_query: Query<FlightQuery>) -> Json<Vec<FlightOption>> {
+pub async fn query_flight(_query: Query<FlightQuery>) -> Json<Vec<FlightOption>> {
     // TODO get from svc-storage
     Json(vec![])
 }
@@ -151,8 +151,8 @@ pub async fn query_flights(_query: Query<FlightQuery>) -> Json<Vec<FlightOption>
 ///
 /// Tries to confirm a flight with the svc-scheduler
 #[utoipa::path(
-    post,
-    path = "/flights/confirm",
+    put,
+    path = "/flight",
     request_body = String,
     responses(
         (status = 201, description = "Flight Confirmed", body = String),
@@ -173,8 +173,8 @@ pub async fn confirm_flight(Json(fp_id): Json<String>) -> impl IntoResponse {
 ///
 /// Tell svc-scheduler to cancel a flight
 #[utoipa::path(
-    put,
-    path = "/flights/cancel",
+    delete,
+    path = "/flight",
     responses(
         (status = 200, description = "Flight cancelled successfully"),
         (status = 404, description = "FlightOption not found")
