@@ -3,6 +3,7 @@
 
 use axum::{handler::Handler, routing, Router, Server};
 use hyper::Error;
+use std::net::{Ipv4Addr, SocketAddr};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -82,7 +83,8 @@ async fn main() -> Result<(), Error> {
         )
         .route("/region", routing::get(pubapi::query_vertiports));
 
-    Server::bind(&"localhost:8080".parse().unwrap())
+    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
+    Server::bind(&address)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await

@@ -1,0 +1,20 @@
+// Test Documentation
+syntax = "proto3";
+package grpc;
+import "google/protobuf/timestamp.proto";
+
+// Heartbeat
+service isReady {
+    rpc isReady (QueryIsReady) returns (ReadyResponse);
+}
+
+// Are you Ready?
+message QueryIsReady {
+    // arbitrary value
+    bool arbitrary = 1;
+}
+
+// I'm Ready
+message ReadyResponse {
+    bool ready = 1;
+}

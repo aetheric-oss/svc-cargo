@@ -21,3 +21,6 @@ serde
 utoipa
 pubapi
 openapi
+prost
+codegen
+protobuf
