@@ -25,5 +25,5 @@ utoipa-swagger-ui = { version = "2.0.1", features = ["axum"] }
 tonic-build = "0.8"
 
 [lib]
-name = "pubapi"
-path = "src/public-api.rs"
+name = "svc_cargo_api_rest"
+path = "src/api_rest.rs"

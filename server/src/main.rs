@@ -7,7 +7,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-pub extern crate pubapi;
+pub extern crate svc_cargo_api_rest;
 
 /// Tokio signal handler that will wait for a user to press CTRL+C.
 /// We use this in our hyper `Server` method `with_graceful_shutdown`.
@@ -52,18 +52,18 @@ async fn main() -> Result<(), Error> {
     #[derive(OpenApi)]
     #[openapi(
         paths(
-            pubapi::query_flight,
-            pubapi::query_vertiports,
-            pubapi::confirm_flight,
-            pubapi::cancel_flight
+            svc_cargo_api_rest::query_flight,
+            svc_cargo_api_rest::query_vertiports,
+            svc_cargo_api_rest::confirm_flight,
+            svc_cargo_api_rest::cancel_flight
         ),
         components(
             schemas(
-                pubapi::FlightOption,
-                pubapi::Vertiport,
-                pubapi::ConfirmError,
-                // pubapi::RegionQuery,
-                // pubapi::FlightQuery
+                svc_cargo_api_rest::FlightOption,
+                svc_cargo_api_rest::Vertiport,
+                svc_cargo_api_rest::ConfirmError,
+                // svc_cargo_api_rest::RegionQuery,
+                // svc_cargo_api_rest::FlightQuery
             )
         ),
         tags(
@@ -77,11 +77,11 @@ async fn main() -> Result<(), Error> {
         .fallback(not_found.into_service())
         .route(
             "/flight",
-            routing::get(pubapi::query_flight)
-                .put(pubapi::confirm_flight)
-                .delete(pubapi::cancel_flight),
+            routing::get(svc_cargo_api_rest::query_flight)
+                .put(svc_cargo_api_rest::confirm_flight)
+                .delete(svc_cargo_api_rest::cancel_flight),
         )
-        .route("/region", routing::get(pubapi::query_vertiports));
+        .route("/region", routing::get(svc_cargo_api_rest::query_vertiports));
 
     let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
     Server::bind(&address)

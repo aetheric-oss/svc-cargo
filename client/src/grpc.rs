@@ -1,10 +1,9 @@
 /// Are you Ready?
+///
+/// No arguments
 #[derive(Eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryIsReady {
-    /// arbitrary value
-    #[prost(bool, tag="1")]
-    pub arbitrary: bool,
 }
 /// I'm Ready
 #[derive(Eq)]
@@ -14,16 +13,16 @@ pub struct ReadyResponse {
     pub ready: bool,
 }
 /// Generated client implementations.
-pub mod is_ready_client {
+pub mod cargo_rpc_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     /// Heartbeat
     #[derive(Debug, Clone)]
-    pub struct IsReadyClient<T> {
+    pub struct CargoRpcClient<T> {
         inner: tonic::client::Grpc<T>,
     }
-    impl IsReadyClient<tonic::transport::Channel> {
+    impl CargoRpcClient<tonic::transport::Channel> {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
@@ -34,7 +33,7 @@ pub mod is_ready_client {
             Ok(Self::new(conn))
         }
     }
-    impl<T> IsReadyClient<T>
+    impl<T> CargoRpcClient<T>
     where
         T: tonic::client::GrpcService<tonic::body::BoxBody>,
         T::Error: Into<StdError>,
@@ -52,7 +51,7 @@ pub mod is_ready_client {
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
-        ) -> IsReadyClient<InterceptedService<T, F>>
+        ) -> CargoRpcClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -66,7 +65,7 @@ pub mod is_ready_client {
                 http::Request<tonic::body::BoxBody>,
             >>::Error: Into<StdError> + Send + Sync,
         {
-            IsReadyClient::new(InterceptedService::new(inner, interceptor))
+            CargoRpcClient::new(InterceptedService::new(inner, interceptor))
         }
         /// Compress requests with the given encoding.
         ///
@@ -83,6 +82,7 @@ pub mod is_ready_client {
             self.inner = self.inner.accept_compressed(encoding);
             self
         }
+        /// Common Interfaces
         pub async fn is_ready(
             &mut self,
             request: impl tonic::IntoRequest<super::QueryIsReady>,
@@ -97,7 +97,7 @@ pub mod is_ready_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/grpc.isReady/isReady");
+            let path = http::uri::PathAndQuery::from_static("/grpc.CargoRpc/isReady");
             self.inner.unary(request.into_request(), path, codec).await
         }
     }

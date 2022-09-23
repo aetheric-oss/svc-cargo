@@ -15,7 +15,8 @@ use utoipa::{IntoParams, ToSchema};
 
 /// Flight Query
 #[allow(dead_code)]
-#[derive(Debug, Deserialize, IntoParams, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+#[derive(IntoParams, ToSchema)]
 pub struct FlightQuery {
     vport_depart_id: String,
     vport_arrive_id: String,
@@ -46,7 +47,8 @@ impl FlightQuery {
 }
 
 /// Region Query
-#[derive(Debug, Deserialize, IntoParams, Copy, Clone)]
+#[derive(Debug, Deserialize, Copy, Clone)]
+#[derive(IntoParams, ToSchema)]
 #[allow(dead_code)]
 pub struct RegionQuery {
     latitude: f32,
@@ -68,7 +70,8 @@ impl RegionQuery {
 }
 
 /// Flight Plan Option
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(ToSchema)]
 pub struct FlightOption {
     fp_id: String,
     vport_depart: String,
@@ -77,7 +80,8 @@ pub struct FlightOption {
 }
 
 /// Vertiport Information
-#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(ToSchema)]
 pub struct Vertiport {
     id: String,
     #[schema(example = "Mercy Hospital (Public)")]
@@ -96,7 +100,8 @@ pub struct Vertiport {
 // }
 
 /// Confirm Flight Operation Errors
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize)]
+#[derive(ToSchema)]
 pub enum ConfirmError {
     /// FlightOption already exists conflict.
     #[schema(example = "Could not confirm flight.")]

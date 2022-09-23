@@ -1,9 +1,8 @@
 /// Are you Ready?
+///
+/// No arguments
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryIsReady {
-    /// arbitrary value
-    #[prost(bool, tag="1")]
-    pub arbitrary: bool,
 }
 /// I'm Ready
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -12,12 +11,13 @@ pub struct ReadyResponse {
     pub ready: bool,
 }
 /// Generated server implementations.
-pub mod is_ready_server {
+pub mod cargo_rpc_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    ///Generated trait containing gRPC methods that should be implemented for use with IsReadyServer.
+    ///Generated trait containing gRPC methods that should be implemented for use with CargoRpcServer.
     #[async_trait]
-    pub trait IsReady: Send + Sync + 'static {
+    pub trait CargoRpc: Send + Sync + 'static {
+        /// Common Interfaces
         async fn is_ready(
             &self,
             request: tonic::Request<super::QueryIsReady>,
@@ -25,13 +25,13 @@ pub mod is_ready_server {
     }
     /// Heartbeat
     #[derive(Debug)]
-    pub struct IsReadyServer<T: IsReady> {
+    pub struct CargoRpcServer<T: CargoRpc> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
     }
     struct _Inner<T>(Arc<T>);
-    impl<T: IsReady> IsReadyServer<T> {
+    impl<T: CargoRpc> CargoRpcServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -65,9 +65,9 @@ pub mod is_ready_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for IsReadyServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for CargoRpcServer<T>
     where
-        T: IsReady,
+        T: CargoRpc,
         B: Body + Send + 'static,
         B::Error: Into<StdError> + Send + 'static,
     {
@@ -83,10 +83,10 @@ pub mod is_ready_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/grpc.isReady/isReady" => {
+                "/grpc.CargoRpc/isReady" => {
                     #[allow(non_camel_case_types)]
-                    struct isReadySvc<T: IsReady>(pub Arc<T>);
-                    impl<T: IsReady> tonic::server::UnaryService<super::QueryIsReady>
+                    struct isReadySvc<T: CargoRpc>(pub Arc<T>);
+                    impl<T: CargoRpc> tonic::server::UnaryService<super::QueryIsReady>
                     for isReadySvc<T> {
                         type Response = super::ReadyResponse;
                         type Future = BoxFuture<
@@ -134,7 +134,7 @@ pub mod is_ready_server {
             }
         }
     }
-    impl<T: IsReady> Clone for IsReadyServer<T> {
+    impl<T: CargoRpc> Clone for CargoRpcServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -144,7 +144,7 @@ pub mod is_ready_server {
             }
         }
     }
-    impl<T: IsReady> Clone for _Inner<T> {
+    impl<T: CargoRpc> Clone for _Inner<T> {
         fn clone(&self) -> Self {
             Self(self.0.clone())
         }
@@ -154,7 +154,7 @@ pub mod is_ready_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: IsReady> tonic::server::NamedService for IsReadyServer<T> {
-        const NAME: &'static str = "grpc.isReady";
+    impl<T: CargoRpc> tonic::server::NamedService for CargoRpcServer<T> {
+        const NAME: &'static str = "grpc.CargoRpc";
     }
 }
