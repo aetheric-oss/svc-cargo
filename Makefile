@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-DOCKER_NAME      := arrow-lib-cargo
-IMAGE_NAME       := lib-cargo
+DOCKER_NAME      := arrow-svc-cargo
+IMAGE_NAME       := svc-cargo
 BUILD_IMAGE_NAME := ghcr.io/arrow-air/tools/arrow-rust
 BUILD_IMAGE_TAG  := latest
 
