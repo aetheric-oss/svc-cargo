@@ -5,9 +5,9 @@ use axum::{handler::Handler, routing, Router, Server};
 use hyper::Error;
 use std::net::{Ipv4Addr, SocketAddr};
 use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
+// use utoipa_swagger_ui::SwaggerUi;
 
-pub extern crate svc_cargo_api_rest;
+mod rest;
 
 /// Tokio signal handler that will wait for a user to press CTRL+C.
 /// We use this in our hyper `Server` method `with_graceful_shutdown`.
@@ -52,18 +52,18 @@ async fn main() -> Result<(), Error> {
     #[derive(OpenApi)]
     #[openapi(
         paths(
-            svc_cargo_api_rest::query_flight,
-            svc_cargo_api_rest::query_vertiports,
-            svc_cargo_api_rest::confirm_flight,
-            svc_cargo_api_rest::cancel_flight
+            rest::query_flight,
+            rest::query_vertiports,
+            rest::confirm_flight,
+            rest::cancel_flight
         ),
         components(
             schemas(
-                svc_cargo_api_rest::FlightOption,
-                svc_cargo_api_rest::Vertiport,
-                svc_cargo_api_rest::ConfirmError,
-                // svc_cargo_api_rest::RegionQuery,
-                // svc_cargo_api_rest::FlightQuery
+                rest::FlightOption,
+                rest::Vertiport,
+                rest::ConfirmError,
+                rest::RegionQuery,
+                rest::FlightQuery
             )
         ),
         tags(
@@ -73,20 +73,14 @@ async fn main() -> Result<(), Error> {
     struct ApiDoc;
 
     let app = Router::new()
-        .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
+        // .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .fallback(not_found.into_service())
-        .route(
-            "/flight",
-            routing::get(svc_cargo_api_rest::query_flight)
-                .put(svc_cargo_api_rest::confirm_flight)
-                .delete(svc_cargo_api_rest::cancel_flight),
-        )
-        .route(
-            "/region",
-            routing::get(svc_cargo_api_rest::query_vertiports),
-        );
+        .route(rest::ENDPOINT_CANCEL, routing::delete(rest::cancel_flight))
+        .route(rest::ENDPOINT_QUERY, routing::get(rest::query_flight))
+        .route(rest::ENDPOINT_CONFIRM, routing::put(rest::confirm_flight))
+        .route(rest::ENDPOINT_REGION, routing::get(rest::query_vertiports));
 
-    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
+    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8000));
     Server::bind(&address)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())

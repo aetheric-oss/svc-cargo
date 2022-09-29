@@ -15,5 +15,7 @@ message QueryIsReady {
 
 // I'm Ready
 message ReadyResponse {
+
+    // True if ready
     bool ready = 1;
 }

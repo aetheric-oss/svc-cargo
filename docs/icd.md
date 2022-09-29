@@ -18,7 +18,7 @@ Status | Draft
 
 Document | Description
 --- | ---
-:construction: Requirements & User Stories :construction: | Requirements and user stories
+[Requirements - `svc-cargo`](https://docs.google.com/spreadsheets/d/1OliSp9BDvMuVvGmSRh1z_Z58QtjlSknLxGVdVZs2l7A/edit#gid=0) | Requirements for this module
 [Software Design Document (SDD)](./sdd.md) | 
 
 ## Frameworks
@@ -41,10 +41,10 @@ See the Services ICD.
 
 | Endpoint | Type | Arguments | Description |
 | ---- | --- | ---- | ---- |
-| `/flight/query` | POST | port_depart<br>port_arrive<br>time_range_start<br>time_range_end<br>cargo_weight_kg | Queries for a flight with the given characteristics
-| `/flight/confirm` | PUT | flight_plan_id | Customer confirmation of a possible flight plan
-| `/flight/cancel` | PUT | flight_plan_id | Cancel a flight plan
-| `/region` | GET | latitude, longitude | Get vertiports
+| `/cargo/query` | GET | port_depart<br>port_arrive<br>time_range_start<br>time_range_end<br>cargo_weight_kg | Queries for a flight with the given characteristics
+| `/cargo/confirm` | PUT | flight_plan_id | Customer confirmation of a possible flight plan
+| `/cargo/cancel` | DELETE | flight_plan_id | Cancel a flight plan
+| `/cargo/region` | GET | latitude, longitude | Get vertiports for a user
 
 
 ## gRPC
@@ -59,13 +59,13 @@ See Services ICD.
 
 ### gRPC Server Methods ("Services")
 
-gRPC server methods are called "services", unfortunately name clashing with the broader concept of web services.
+gRPC server methods are called "services", an unfortunate name clash with the broader concept of web services.
 
 | Service | Description |
 | ---- | ---- |
 | `IsReady` | Returns a message indicating if this service is ready for requests.<br>Similar to a health check, if a server is not "ready" it could be considered dead by the client making the request.
 
-### gRPC Client Methods ("Requests")
+### gRPC Client Messages ("Requests")
 
 | Request | Description |
 | ------    | ------- |

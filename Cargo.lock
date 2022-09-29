@@ -1082,7 +1082,7 @@ dependencies = [
  "prost-types",
  "serde",
  "serde_json",
- "svc-cargo-client 0.1.0 (git+https://github.com/Arrow-air/svc-scheduler/?branch=develop)",
+ "svc-scheduler-client",
  "tokio",
  "tokio-util",
  "tonic-build",
@@ -1091,18 +1091,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "svc-cargo-client"
+name = "svc-cargo-client-grpc"
 version = "0.1.0"
 dependencies = [
  "prost",
  "prost-types",
+ "tokio",
  "tonic",
 ]
 
 [[package]]
-name = "svc-cargo-client"
+name = "svc-cargo-client-rest"
 version = "0.1.0"
-source = "git+https://github.com/Arrow-air/svc-scheduler/?branch=develop#b769b582a41d1a46d70454ea2f5056249def4e05"
+dependencies = [
+ "chrono",
+ "hyper",
+ "serde",
+ "serde_json",
+ "tokio",
+ "utoipa",
+]
+
+[[package]]
+name = "svc-scheduler-client"
+version = "0.1.0"
+source = "git+https://github.com/Arrow-air/svc-scheduler/?branch=develop#c7354d311d70a7ba62e31a9f7771e546c4b9d532"
 dependencies = [
  "prost",
  "prost-types",

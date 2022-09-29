@@ -1,14 +1,15 @@
 /// Are you Ready?
 ///
 /// No arguments
-#[derive(Eq)]
+#[derive(Eq, Copy)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryIsReady {
 }
 /// I'm Ready
-#[derive(Eq)]
+#[derive(Eq, Copy)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadyResponse {
+    /// True if ready
     #[prost(bool, tag="1")]
     pub ready: bool,
 }

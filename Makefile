@@ -57,6 +57,7 @@ help:
 	@echo "  $(BOLD)clean$(SGR0)       -- Run 'cargo clean'"
 	@echo "  $(BOLD)rust-check$(SGR0)  -- Run 'cargo check'"
 	@echo "  $(BOLD)rust-test$(SGR0)   -- Run 'cargo test --all'"
+	@echo "  $(BOLD)rust-example-ARG$(SGR0)   -- Run 'cargo run --example ARG' (replace ARG with example name)"
 	@echo "  $(BOLD)rust-clippy$(SGR0) -- Run 'cargo clippy --all -- -D warnings'"
 	@echo "  $(BOLD)rust-fmt$(SGR0)    -- Run 'cargo fmt --all -- --check' to check rust file formats."
 	@echo "  $(BOLD)rust-tidy$(SGR0)   -- Run 'cargo fmt --all' to fix rust file formats if needed."
@@ -117,6 +118,10 @@ rust-check: check-cargo-registry docker-pull
 
 rust-test: check-cargo-registry docker-pull
 	@$(call cargo_run,test,--all)
+
+rust-example-%: check-cargo-registry docker-pull
+	@echo "$(YELLOW)cargo run --example $* ...$(NC)"
+	@$(call cargo_run,run --example $*)
 
 rust-clippy: check-cargo-registry docker-pull
 	@$(call cargo_run,clippy,--all -- -D warnings)

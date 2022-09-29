@@ -22,7 +22,7 @@ Document | Description
 --- | ---
 :construction: High-Level Concept of Operations (CONOPS) | Overview of Arrow microservices.
 :construction: High-Level Interface Control Document (ICD) | Interfaces and frameworks common to all Arrow microservices.
-:construction: Requirements - `svc-cargo` | Requirements and user stories for this microservice.
+[Requirements - `svc-cargo`](https://docs.google.com/spreadsheets/d/1OliSp9BDvMuVvGmSRh1z_Z58QtjlSknLxGVdVZs2l7A/edit#gid=0) | Requirements and user stories for this microservice.
 [Concept of Operations - `svc-cargo`](./conops.md) | Defines the motivation and duties of this microservice.
 [Interface Control Document (ICD) - `svc-cargo`](./icd.md) | Defines the inputs and outputs of this microservice.
 
