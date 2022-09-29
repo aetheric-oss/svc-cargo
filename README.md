@@ -66,9 +66,10 @@ There are additional make targets available. You can find all possible targets b
 
 ## :scroll: Documentation
 The following documents are relevant to this service:
-- [Concept of Operations](TODO)
-- [Requirements & User Stories](TODO)
-- [SDD](./docs/sdd.md)
+- [Concept of Operations](./docs/conops.md)
+- [Software Design Document (SDD)](./docs/sdd.md)
+- [Interface Control Document (ICD)](./docs/icd.md)
+- [User Stories](https://docs.google.com/spreadsheets/u/1/d/1Ad238NAEj6QUzgsjPTRRFJy6NiQVQt2e7affwVVDAFo/edit#gid=1071403191)
 
 ## :busts_in_silhouette: Arrow DAO
 Learn more about us:

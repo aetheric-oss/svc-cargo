@@ -81,7 +81,10 @@ async fn main() -> Result<(), Error> {
                 .put(svc_cargo_api_rest::confirm_flight)
                 .delete(svc_cargo_api_rest::cancel_flight),
         )
-        .route("/region", routing::get(svc_cargo_api_rest::query_vertiports));
+        .route(
+            "/region",
+            routing::get(svc_cargo_api_rest::query_vertiports),
+        );
 
     let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
     Server::bind(&address)

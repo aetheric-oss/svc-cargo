@@ -8,9 +8,7 @@
 
 ## Overview
 
-This document details the common software interfaces required by all services in the Arrow ecosystem.
-
-Each service may add additional interfaces.
+This document defines the gRPC and REST interfaces unique to the `svc-cargo` microservice.
 
 Attribute | Description
 --- | ---
@@ -21,6 +19,7 @@ Status | Draft
 Document | Description
 --- | ---
 :construction: Requirements & User Stories :construction: | Requirements and user stories
+[Software Design Document (SDD)](./sdd.md) | 
 
 ## Frameworks
 
