@@ -78,7 +78,10 @@ async fn main() -> Result<(), Error> {
         .route(rest::ENDPOINT_CANCEL, routing::delete(rest::cancel_flight))
         .route(rest::ENDPOINT_QUERY, routing::get(rest::query_flight))
         .route(rest::ENDPOINT_CONFIRM, routing::put(rest::confirm_flight))
-        .route(rest::ENDPOINT_VERTIPORTS, routing::get(rest::query_vertiports));
+        .route(
+            rest::ENDPOINT_VERTIPORTS,
+            routing::get(rest::query_vertiports),
+        );
 
     let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8000));
     Server::bind(&address)
