@@ -18,13 +18,13 @@ pub use types::*;
 /// List all Vertiport items from svc-storage
 #[utoipa::path(
     get,
-    path = "/cargo/region",
-    request_body = RegionQuery,
+    path = "/cargo/vertiports",
+    request_body = VertiportsQuery,
     responses(
         (status = 200, description = "List all cargo-accessible vertiports successfully", body = [Vertiport])
     )
 )]
-pub async fn query_vertiports(Json(payload): Json<RegionQuery>) -> Json<Vec<Vertiport>> {
+pub async fn query_vertiports(Json(payload): Json<VertiportsQuery>) -> Json<Vec<Vertiport>> {
     // let vertiports = store.lock().await.clone();
     // TODO Query svc-storage
     println!("{:?}", payload);
@@ -40,7 +40,7 @@ pub async fn query_vertiports(Json(payload): Json<RegionQuery>) -> Json<Vec<Vert
     path = "/cargo/query",
     request_body = FlightQuery,
     responses(
-        (status = 200, description = "List possible berths", body = [FlightOption])
+        (status = 200, description = "List possible flights", body = [FlightOption])
     )
 )]
 pub async fn query_flight(Json(payload): Json<FlightQuery>) -> Json<Vec<FlightOption>> {

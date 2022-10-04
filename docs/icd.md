@@ -44,14 +44,14 @@ See the Services ICD.
 | `/cargo/query` | GET | port_depart<br>port_arrive<br>time_range_start<br>time_range_end<br>cargo_weight_kg | Queries for a flight with the given characteristics
 | `/cargo/confirm` | PUT | flight_plan_id | Customer confirmation of a possible flight plan
 | `/cargo/cancel` | DELETE | flight_plan_id | Cancel a flight plan
-| `/cargo/region` | GET | latitude, longitude | Get vertiports for a user
+| `/cargo/vertiports` | GET | latitude, longitude | Get vertiports for a user
 
 
 ## gRPC
 
 ### Files
 
-These interfaces are defined in a protocol buffer file, `svc-cargo-grpc.proto`.
+These interfaces are defined in a protocol buffer file, [`svc-cargo-grpc.proto`](../proto/svc-cargo-grpc.proto).
 
 ### Integrated Authentication & Encryption
 

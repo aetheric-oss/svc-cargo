@@ -1,26 +1,26 @@
 //! Example communication with this service
 
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate};
 use hyper::StatusCode;
 use hyper::{Body, Client, Method, Request};
-use std::time::Duration;
 use svc_cargo_client_rest::types::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("NOTE: Ensure the server is running, or this example will fail.");
 
-    let url = "http://0.0.0.0:8000";
+    // let host_port = env!("HOST_PORT");
+    let url = format!("http://0.0.0.0:8000");
     let mut ok = true;
     let client = Client::builder()
-        .pool_idle_timeout(Duration::from_secs(10))
+        .pool_idle_timeout(std::time::Duration::from_secs(10))
         .build_http();
 
-    // GET /cargo/region
+    // GET /cargo/vertiports
     {
-        let data = RegionQuery::new(32.7262, 117.1544);
+        let data = VertiportsQuery::new(32.7262, 117.1544);
         let data_str = serde_json::to_string(&data).unwrap();
-        let uri = format!("{}{}", url, ENDPOINT_REGION);
+        let uri = format!("{}{}", url, ENDPOINT_VERTIPORTS);
         let req = Request::builder()
             .method(Method::GET)
             .uri(uri.clone())
@@ -79,10 +79,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // GET /cargo/query
     {
+        let depart_timestamp_min = NaiveDate::from_ymd(1999, 12, 31).and_hms(23, 59, 59);
         let data = FlightQuery::new(
             "vertiport_1".to_string(),
             "vertiport_2".to_string(),
-            NaiveDate::from_ymd(1999, 12, 31).and_hms(23, 59, 59),
+            depart_timestamp_min,
+            depart_timestamp_min + Duration::hours(1),
             1.0,
         );
         let data_str = serde_json::to_string(&data).unwrap();

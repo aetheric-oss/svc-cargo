@@ -14,7 +14,7 @@ pub const ENDPOINT_CONFIRM: &str = "/cargo/confirm";
 pub const ENDPOINT_QUERY: &str = "/cargo/query";
 
 /// API Endpoint to Get Vertiports for a Region
-pub const ENDPOINT_REGION: &str = "/cargo/region";
+pub const ENDPOINT_VERTIPORTS: &str = "/cargo/vertiports";
 
 /// Request Body Information for Flight Query
 #[allow(dead_code)]
@@ -23,7 +23,8 @@ pub const ENDPOINT_REGION: &str = "/cargo/region";
 pub struct FlightQuery {
     vport_depart_id: String,
     vport_arrive_id: String,
-    timestamp: NaiveDateTime,
+    timestamp_depart_min: NaiveDateTime,
+    timestamp_depart_max: NaiveDateTime,
     weight_kg: f32,
 }
 
@@ -32,19 +33,22 @@ impl FlightQuery {
     /// # Arguments
     /// vport_depart_id: The String ID of the vertiport to leave from
     /// vport_arrive_id: The String ID of the destination vertiport
-    /// timestamp: The delivery time
+    /// timestamp_depart_min: The start of the pad departure window
+    /// timestamp_depart_max: The end of the pad departure window
     /// weight_kg: The approximate weight of the cargo
     #[allow(dead_code)]
     pub fn new(
         vport_depart_id: String,
         vport_arrive_id: String,
-        timestamp: NaiveDateTime,
+        timestamp_depart_min: NaiveDateTime,
+        timestamp_depart_max: NaiveDateTime,
         weight_kg: f32,
     ) -> Self {
         FlightQuery {
             vport_depart_id,
             vport_arrive_id,
-            timestamp,
+            timestamp_depart_min,
+            timestamp_depart_max,
             weight_kg,
         }
     }
@@ -65,19 +69,19 @@ pub struct FlightCancel {
 #[derive(Debug, Copy, Clone)]
 #[derive(Deserialize, Serialize)]
 #[derive(ToSchema)]
-pub struct RegionQuery {
+pub struct VertiportsQuery {
     latitude: f32,
     longitude: f32,
 }
 
-impl RegionQuery {
+impl VertiportsQuery {
     /// Creates a region query with required fields
     /// # Arguments
     /// lat: Latitude in Float format
     /// long: Longitude in Float format
     #[allow(dead_code)]
     pub fn new(lat: f32, long: f32) -> Self {
-        RegionQuery {
+        VertiportsQuery {
             latitude: lat,
             longitude: long,
         }
