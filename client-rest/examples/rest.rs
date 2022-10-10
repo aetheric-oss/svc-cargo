@@ -9,8 +9,10 @@ use svc_cargo_client_rest::types::*;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("NOTE: Ensure the server is running, or this example will fail.");
 
+    let rest_port = std::env::var("HOST_PORT").unwrap_or("8000".to_string());
+
     // let host_port = env!("HOST_PORT");
-    let url = format!("http://0.0.0.0:8000");
+    let url = format!("http://0.0.0.0:{rest_port}");
     let mut ok = true;
     let client = Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(10))

@@ -27,7 +27,11 @@ To ensure consistent build and test outputs, Arrow provides a Docker image with 
 Using the Makefile, you can easily test and build your code.
 
 ```bash
-make docker-build
+# Build Locally
+make rust-build
+
+# Create Deployment Container
+make build
 make docker-run
 
 # If a server is already running

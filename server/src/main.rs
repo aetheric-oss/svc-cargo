@@ -49,6 +49,11 @@ pub async fn not_found(uri: axum::http::Uri) -> impl axum::response::IntoRespons
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    let rest_port = std::env::var("HOST_PORT")
+                        .unwrap_or("8000".to_string())
+                        .parse::<u16>().unwrap_or(8000);
+
+
     #[derive(OpenApi)]
     #[openapi(
         paths(
@@ -83,7 +88,7 @@ async fn main() -> Result<(), Error> {
             routing::get(rest::query_vertiports),
         );
 
-    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8000));
+    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, rest_port));
     Server::bind(&address)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
