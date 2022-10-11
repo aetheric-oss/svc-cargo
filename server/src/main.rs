@@ -50,9 +50,9 @@ pub async fn not_found(uri: axum::http::Uri) -> impl axum::response::IntoRespons
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let rest_port = std::env::var("DOCKER_PORT")
-                        .unwrap_or("8000".to_string())
-                        .parse::<u16>().unwrap_or(8000);
-
+        .unwrap_or_else(|_| "8000".to_string())
+        .parse::<u16>()
+        .unwrap_or(8000);
 
     #[derive(OpenApi)]
     #[openapi(
