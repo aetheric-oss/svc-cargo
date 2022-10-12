@@ -20,8 +20,11 @@ Status | Draft
 
 Document | Description
 --- | ---
-[Concept of Operations (CONOPS) (FIXME)](./FIXME) | Overview of the scope and duties of this module.
-[Requirements & User Stories (FIXME)](./FIXME) | Requirements and user stories for this module.
+:construction: High-Level Concept of Operations (CONOPS) | Overview of Arrow microservices.
+:construction: High-Level Interface Control Document (ICD) | Interfaces and frameworks common to all Arrow microservices.
+[Requirements - `svc-cargo`](https://docs.google.com/spreadsheets/d/1OliSp9BDvMuVvGmSRh1z_Z58QtjlSknLxGVdVZs2l7A/edit#gid=0) | Requirements and user stories for this microservice.
+[Concept of Operations - `svc-cargo`](./conops.md) | Defines the motivation and duties of this microservice.
+[Interface Control Document (ICD) - `svc-cargo`](./icd.md) | Defines the inputs and outputs of this microservice.
 
 ## Location
 
@@ -35,8 +38,6 @@ Safety Critical | ? |
 Realtime | ? |
 
 ## Global Variables
-
-**Statically Allocated Queues**
 
 FIXME
 
@@ -54,26 +55,12 @@ FIXME
 
 FIXME
 
-## Interfaces
+## Interface Handlers
 
-For a refresher of the processes in the Arrow backend, please see the [top level README.md](../README.md).
+See the ICD for this microservice.
 
-```mermaid
-graph LR
-    subgraph Vehicle Domain
-        air((Aircraft))
-    end
-
-    subgraph Client Domain
-        app(App X)
-    end
-
-    subgraph Server Domain
-        module[Module A]
-    end
-```
-
-FIXME description of the graph.
+Handler | Description
+---- | ----
 
 ## Tests
 
