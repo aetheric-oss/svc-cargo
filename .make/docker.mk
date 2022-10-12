@@ -2,7 +2,7 @@
 # This file was provisioned by Terraform
 # File origin: https://github.com/Arrow-air/tf-github/tree/main/src/templates/all/.make/docker.mk
 
-DOCKER_BUILD_PATH ?= .
+DOCKER_BUILD_PATH ?= ./docker/
 IMAGE_NAME        ?= $(PACKAGE_NAME)
 
 .help-docker:

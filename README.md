@@ -77,8 +77,8 @@ There are additional make targets available. You can find all possible targets b
 
 ## :scroll: Documentation
 The following documents are relevant to this service:
-- [Concept of Operations](TODO)
-- [Requirements & User Stories](TODO)
+- Concept of Operations
+- Requirements & User Stories
 - [SDD](./docs/sdd.md)
 
 ## :busts_in_silhouette: Arrow DAO

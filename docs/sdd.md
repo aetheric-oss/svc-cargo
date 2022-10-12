@@ -20,8 +20,8 @@ Status | Draft
 
 Document | Description
 --- | ---
-[Concept of Operations (CONOPS) (FIXME)](./FIXME) | Overview of the scope and duties of this module.
-[Requirements & User Stories (FIXME)](./FIXME) | Requirements and user stories for this module.
+Concept of Operations (CONOPS) (FIXME)| Overview of the scope and duties of this module.
+Requirements & User Stories (FIXME) | Requirements and user stories for this module.
 
 ## Location
 
