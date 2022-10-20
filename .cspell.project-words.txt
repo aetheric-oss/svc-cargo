@@ -26,3 +26,5 @@ codegen
 protobuf
 tcort
 microservices
+healthcheck
+commitlint
