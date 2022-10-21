@@ -13,5 +13,9 @@ tonic       = "0.8.1"
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 
+[lib]
+name = "svc_cargo_client"
+path = "src/lib.rs"
+
 [[example]]
 name = "grpc"
