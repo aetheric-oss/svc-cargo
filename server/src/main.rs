@@ -1,13 +1,43 @@
 //! svc-cargo
 //! Processes flight requests from client applications
 
-use axum::{handler::Handler, routing, Router, Server};
+use axum::{handler::Handler, routing, Router};
 use hyper::Error;
 use std::net::{Ipv4Addr, SocketAddr};
 use utoipa::OpenApi;
-// use utoipa_swagger_ui::SwaggerUi;
 
 mod rest;
+
+/// GRPC Interfaces for svc-cargo
+pub mod cargo_grpc {
+    #![allow(unused_qualifications)]
+    include!("grpc.rs");
+}
+
+use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
+
+/// Struct that implements the CargoRpc trait.
+///
+/// This is the main struct that implements the gRPC service.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct CargoGrpcImpl {}
+
+// Implementing gRPC interfaces for this microservice
+#[tonic::async_trait]
+impl CargoRpc for CargoGrpcImpl {
+    /// Replies true if this server is ready to serve others.
+    /// # Arguments
+    /// * `request` - the query object with no arguments
+    /// # Returns
+    /// * `ReadyResponse` - Returns true
+    async fn is_ready(
+        &self,
+        _request: tonic::Request<cargo_grpc::QueryIsReady>,
+    ) -> Result<tonic::Response<cargo_grpc::ReadyResponse>, tonic::Status> {
+        let response = cargo_grpc::ReadyResponse { ready: true };
+        Ok(tonic::Response::new(response))
+    }
+}
 
 /// Tokio signal handler that will wait for a user to press CTRL+C.
 /// We use this in our hyper `Server` method `with_graceful_shutdown`.
@@ -47,50 +77,81 @@ pub async fn not_found(uri: axum::http::Uri) -> impl axum::response::IntoRespons
     )
 }
 
+fn rest_server_start() {
+    tokio::spawn(async move {
+        let rest_port = std::env::var("DOCKER_PORT_REST")
+            .unwrap_or_else(|_| "8000".to_string())
+            .parse::<u16>()
+            .unwrap_or(8000);
+        #[derive(OpenApi)]
+        #[openapi(
+            paths(
+                rest::query_flight,
+                rest::query_vertiports,
+                rest::confirm_flight,
+                rest::cancel_flight
+            ),
+            components(
+                schemas(
+                    rest::FlightOption,
+                    rest::Vertiport,
+                    rest::ConfirmError,
+                    rest::VertiportsQuery,
+                    rest::FlightQuery
+                )
+            ),
+            tags(
+                (name = "svc-cargo", description = "svc-cargo API")
+            )
+        )]
+        struct ApiDoc;
+
+        let app = Router::new()
+            // .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
+            .fallback(not_found.into_service())
+            .route(rest::ENDPOINT_CANCEL, routing::delete(rest::cancel_flight))
+            .route(rest::ENDPOINT_QUERY, routing::get(rest::query_flight))
+            .route(rest::ENDPOINT_CONFIRM, routing::put(rest::confirm_flight))
+            .route(
+                rest::ENDPOINT_VERTIPORTS,
+                routing::get(rest::query_vertiports),
+            );
+
+        println!("REST API Hosted at 0.0.0.0:{rest_port}");
+        let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, rest_port));
+        axum::Server::bind(&address)
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .unwrap();
+    });
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let rest_port = std::env::var("DOCKER_PORT")
-        .unwrap_or_else(|_| "8000".to_string())
+    // REST API in background thread
+    rest_server_start();
+
+    // GRPC Server
+    let grpc_port = std::env::var("DOCKER_PORT_GRPC")
+        .unwrap_or_else(|_| "50051".to_string())
         .parse::<u16>()
-        .unwrap_or(8000);
+        .unwrap_or(50051);
 
-    #[derive(OpenApi)]
-    #[openapi(
-        paths(
-            rest::query_flight,
-            rest::query_vertiports,
-            rest::confirm_flight,
-            rest::cancel_flight
-        ),
-        components(
-            schemas(
-                rest::FlightOption,
-                rest::Vertiport,
-                rest::ConfirmError,
-                rest::VertiportsQuery,
-                rest::FlightQuery
-            )
-        ),
-        tags(
-            (name = "svc-cargo", description = "svc-cargo API")
-        )
-    )]
-    struct ApiDoc;
+    let addr = format!("[::1]:{grpc_port}").parse().unwrap();
+    let imp = CargoGrpcImpl::default();
+    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+    health_reporter
+        .set_serving::<CargoRpcServer<CargoGrpcImpl>>()
+        .await;
 
-    let app = Router::new()
-        // .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
-        .fallback(not_found.into_service())
-        .route(rest::ENDPOINT_CANCEL, routing::delete(rest::cancel_flight))
-        .route(rest::ENDPOINT_QUERY, routing::get(rest::query_flight))
-        .route(rest::ENDPOINT_CONFIRM, routing::put(rest::confirm_flight))
-        .route(
-            rest::ENDPOINT_VERTIPORTS,
-            routing::get(rest::query_vertiports),
-        );
-
-    let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, rest_port));
-    Server::bind(&address)
-        .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
+    println!("gRPC Server Listening at {}", addr);
+    tonic::transport::Server::builder()
+        .add_service(health_service)
+        .add_service(CargoRpcServer::new(imp))
+        .serve_with_shutdown(addr, shutdown_signal())
         .await
+        .unwrap();
+
+    Ok(())
 }

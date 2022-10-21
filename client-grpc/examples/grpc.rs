@@ -1,26 +1,29 @@
 //! gRPC client implementation
 
-///module svc_scheduler generated from svc-scheduler.proto
-// use std::time::SystemTime;
-// use svc_cargo_client_grpc::client::cargo_rpc_client::CargoRpcClient;
+use svc_cargo_client::client::{cargo_rpc_client::CargoRpcClient, QueryIsReady};
 
 /// Example svc-cargo-client
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let mut client = CargoRpcClient::connect("http://[::1]:50051").await?;
-    // let sys_time = SystemTime::now();
-    // let request = tonic::Request::new(QueryFlightRequest {
-    //     is_cargo: true,
-    //     persons: 0,
-    //     weight_grams: 5000,
-    //     latitude: 37.77397,
-    //     longitude: -122.43129,
-    //     requested_time: Some(prost_types::Timestamp::from(sys_time)),
-    // });
+    println!("NOTE: Ensure the server is running, or this example will fail.");
+    let mut ok = true;
 
-    // let response = client.query_flight(request).await?;
+    let grpc_port = std::env::var("HOST_PORT_GRPC").unwrap_or_else(|_| "50051".to_string());
+    let mut client = CargoRpcClient::connect(format!("http://[::1]:{grpc_port}")).await?;
+    let request = tonic::Request::new(QueryIsReady {});
+    let response = client.is_ready(request).await;
+    if response.is_err() {
+        ok = false;
+        println!("IsReady: FAIL");
+    } else {
+        println!("IsReady: PASS");
+    }
 
-    // println!("RESPONSE={:?}", response.into_inner());
+    if ok {
+        println!("\u{1F9c1} All endpoints responded!");
+    } else {
+        eprintln!("\u{2620} Errors");
+    }
 
     Ok(())
 }
