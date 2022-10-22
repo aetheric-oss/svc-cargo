@@ -1,9 +1,26 @@
 //! Example communication with this service
 
 use chrono::{Duration, NaiveDate};
-use hyper::StatusCode;
-use hyper::{Body, Client, Method, Request};
+use hyper::{Body, Client, Method, Request, Response};
+use hyper::{Error, StatusCode};
 use svc_cargo_client_rest::types::*;
+
+fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (bool, String) {
+    let mut ok = true;
+    let result_str: String = match resp {
+        Ok(r) => {
+            let tmp = r.status() == expected_code;
+            ok &= tmp;
+            r.status().to_string()
+        }
+        Err(e) => {
+            ok = false;
+            e.to_string()
+        }
+    };
+
+    (ok, result_str)
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -18,23 +35,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .pool_idle_timeout(std::time::Duration::from_secs(10))
         .build_http();
 
-    // GET /cargo/vertiports
+    // POST /cargo/vertiports
     {
         let data = VertiportsQuery::new(32.7262, 117.1544);
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_VERTIPORTS);
         let req = Request::builder()
-            .method(Method::GET)
+            .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
             .unwrap();
 
-        let resp = client.request(req).await.unwrap();
-        let tmp = resp.status() == StatusCode::OK;
-        println!("{}: {}", uri, resp.status());
-        assert!(tmp);
-        ok &= tmp;
+        let resp = client.request(req).await;
+        let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);
+        ok &= success;
+
+        println!("{}: {}", uri, result_str);
     }
 
     // PUT /cargo/confirm
@@ -51,11 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .body(Body::from(data_str))
             .unwrap();
 
-        let resp = client.request(req).await.unwrap();
-        let tmp = resp.status() == StatusCode::CREATED;
-        println!("{}: {}", uri, resp.status());
-        assert!(tmp);
-        ok &= tmp;
+        let resp = client.request(req).await;
+        let (success, result_str) = evaluate(resp, StatusCode::CREATED);
+        ok &= success;
+
+        println!("{}: {}", uri, result_str);
     }
 
     // DELETE /cargo/cancel
@@ -72,14 +89,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .body(Body::from(data_str))
             .unwrap();
 
-        let resp = client.request(req).await.unwrap();
-        let tmp = resp.status() == StatusCode::OK;
-        println!("{}: {}", uri, resp.status());
-        assert!(tmp);
-        ok &= tmp;
+        let resp = client.request(req).await;
+        let (success, result_str) = evaluate(resp, StatusCode::OK);
+        ok &= success;
+
+        println!("{}: {}", uri, result_str);
     }
 
-    // GET /cargo/query
+    // POST /cargo/query
     {
         let depart_timestamp_min = NaiveDate::from_ymd(1999, 12, 31).and_hms(23, 59, 59);
         let data = FlightQuery::new(
@@ -92,16 +109,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_QUERY);
         let req = Request::builder()
-            .method(Method::GET)
+            .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
             .unwrap();
 
-        let resp = client.request(req).await.unwrap();
-        let tmp = resp.status() == StatusCode::OK;
-        println!("{}: {}", uri, resp.status());
-        ok &= tmp;
+        let resp = client.request(req).await;
+        let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);
+        ok &= success;
+
+        println!("{}: {}", uri, result_str);
     }
 
     if ok {
