@@ -21,35 +21,35 @@ pub const ENDPOINT_VERTIPORTS: &str = "/cargo/vertiports";
 #[derive(Debug, Clone, IntoParams, ToSchema)]
 #[derive(Deserialize, Serialize)]
 pub struct FlightQuery {
-    vport_depart_id: String,
-    vport_arrive_id: String,
+    vertiport_depart_id: String,
+    vertiport_arrive_id: String,
     timestamp_depart_min: NaiveDateTime,
     timestamp_depart_max: NaiveDateTime,
-    weight_kg: f32,
+    cargo_weight_kg: f32,
 }
 
 impl FlightQuery {
     /// Creates a new flight query with required fields
     /// # Arguments
-    /// vport_depart_id: The String ID of the vertiport to leave from
-    /// vport_arrive_id: The String ID of the destination vertiport
+    /// vertiport_depart_id: The String ID of the vertiport to leave from
+    /// vertiport_arrive_id: The String ID of the destination vertiport
     /// timestamp_depart_min: The start of the pad departure window
     /// timestamp_depart_max: The end of the pad departure window
-    /// weight_kg: The approximate weight of the cargo
+    /// cargo_weight_kg: The approximate weight of the cargo
     #[allow(dead_code)]
     pub fn new(
-        vport_depart_id: String,
-        vport_arrive_id: String,
+        vertiport_depart_id: String,
+        vertiport_arrive_id: String,
         timestamp_depart_min: NaiveDateTime,
         timestamp_depart_max: NaiveDateTime,
-        weight_kg: f32,
+        cargo_weight_kg: f32,
     ) -> Self {
         FlightQuery {
-            vport_depart_id,
-            vport_arrive_id,
+            vertiport_depart_id,
+            vertiport_arrive_id,
             timestamp_depart_min,
             timestamp_depart_max,
-            weight_kg,
+            cargo_weight_kg,
         }
     }
 }
@@ -91,10 +91,20 @@ impl VertiportsQuery {
 /// Flight Plan Option
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct FlightOption {
-    fp_id: String,
-    vport_depart: String,
-    vport_arrive: String,
-    timestamp: NaiveDateTime,
+    /// Flight Plan ID
+    pub fp_id: String,
+
+    /// Departure Vertiport ID
+    pub vertiport_depart_id: String,
+
+    /// Arrival Vertiport ID
+    pub vertiport_arrive_id: String,
+
+    /// Estimated departure timestamp
+    pub timestamp_depart: NaiveDateTime,
+
+    /// Estimated arrival timestamp
+    pub timestamp_arrive: NaiveDateTime
 }
 
 
@@ -107,15 +117,21 @@ pub struct FlightConfirm {
     /// Flight Plan ID
     pub fp_id: String
 }
-
 /// Vertiport Information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Vertiport {
-    id: String,
+    /// The unique ID of the vertiport
+    pub id: String,
+
+    /// The human-readable label of the vertiport
     #[schema(example = "Mercy Hospital (Public)")]
-    label: String,
-    latitude: f32,
-    longitude: f32,
+    pub label: String,
+
+    /// The latitude (float value) of the vertiport
+    pub latitude: f32,
+
+    /// The longitude (float value) of the vertiport
+    pub longitude: f32,
 }
 
 // #[derive(Serialize, Deserialize, ToSchema, Clone)]
@@ -127,9 +143,13 @@ pub struct Vertiport {
 //     description_arrive: HashMap<String, String>
 // }
 
-/// Confirm Flight Operation Errors
+/// Confirm Flight Operation Status
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub enum ConfirmError {
+pub enum ConfirmStatus {
+    /// Successful confirmation of flight
+    #[schema(example = "Flight successfully confirmed.")]
+    Success(String),
+
     /// FlightOption already exists conflict.
     #[schema(example = "Could not confirm flight.")]
     Conflict(String),
@@ -139,4 +159,7 @@ pub enum ConfirmError {
     /// Unauthorized Attempt to Confirm Flight
     #[schema(example = "Unauthorized confirmation by someone other than the customer.")]
     Unauthorized(String),
+
+    /// Unavailable Service
+    Unavailable,
 }

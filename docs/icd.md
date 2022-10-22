@@ -41,10 +41,10 @@ See the Services ICD.
 
 | Endpoint | Type | Arguments | Description |
 | ---- | --- | ---- | ---- |
-| `/cargo/query` | GET | port_depart<br>port_arrive<br>time_range_start<br>time_range_end<br>cargo_weight_kg | Queries for a flight with the given characteristics
+| `/cargo/query` | POST | vertiport_depart_id<br>vertiport_arrive_id<br>timestamp_depart_min<br>timestamp_depart_max<br>cargo_weight_kg | Queries for a flight with the given characteristics
 | `/cargo/confirm` | PUT | flight_plan_id | Customer confirmation of a possible flight plan
 | `/cargo/cancel` | DELETE | flight_plan_id | Cancel a flight plan
-| `/cargo/vertiports` | GET | latitude, longitude | Get vertiports for a user
+| `/cargo/vertiports` | POST | latitude, longitude | Get vertiports for a user
 
 
 ## gRPC
