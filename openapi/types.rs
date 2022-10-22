@@ -111,11 +111,18 @@ pub struct FlightConfirm {
 /// Vertiport Information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Vertiport {
-    id: String,
+    /// The unique ID of the vertiport
+    pub id: u32,
+
+    /// The human-readable label of the vertiport
     #[schema(example = "Mercy Hospital (Public)")]
-    label: String,
-    latitude: f32,
-    longitude: f32,
+    pub label: String,
+
+    /// The latitude (float value) of the vertiport
+    pub latitude: f32,
+
+    /// The longitude (float value) of the vertiport
+    pub longitude: f32,
 }
 
 // #[derive(Serialize, Deserialize, ToSchema, Clone)]
