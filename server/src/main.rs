@@ -4,6 +4,7 @@
 use axum::{handler::Handler, routing, Router};
 use hyper::Error;
 use std::net::{Ipv4Addr, SocketAddr};
+use tower_http::cors::{Any, CorsLayer};
 use utoipa::OpenApi;
 
 mod rest;
@@ -106,16 +107,25 @@ fn rest_server_start() {
         )]
         struct ApiDoc;
 
+        let cors = CorsLayer::new()
+            // allow `GET` and `POST` when accessing the resource
+            .allow_methods(Any)
+            .allow_headers(Any)
+            // allow requests from any origin
+            .allow_origin(Any);
+
         let app = Router::new()
             // .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
             .fallback(not_found.into_service())
             .route(rest::ENDPOINT_CANCEL, routing::delete(rest::cancel_flight))
-            .route(rest::ENDPOINT_QUERY, routing::get(rest::query_flight))
+            .route(rest::ENDPOINT_QUERY, routing::post(rest::query_flight))
             .route(rest::ENDPOINT_CONFIRM, routing::put(rest::confirm_flight))
             .route(
                 rest::ENDPOINT_VERTIPORTS,
-                routing::get(rest::query_vertiports),
-            );
+                routing::post(rest::query_vertiports),
+            )
+            .layer(cors);
+        // header
 
         println!("REST API Hosted at 0.0.0.0:{rest_port}");
         let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, rest_port));

@@ -105,5 +105,6 @@ pub async fn cancel_flight(Json(payload): Json<FlightCancel>, _headers: HeaderMa
     // TODO svc-scheduler.cancel_flight
     println!("{:?}", payload);
 
+    // return status OK with Header of CORS
     StatusCode::OK
 }
