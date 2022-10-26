@@ -87,43 +87,124 @@ async fn grpc_server() {
         (status = 404, description = "Unable to get vertiports.")
     )
 )]
+#[allow(clippy::excessive_precision)]
 pub async fn query_vertiports(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(_grpc_clients): Extension<GrpcClients>,
     Json(_payload): Json<rest_types::VertiportsQuery>,
 ) -> Result<Json<Vec<rest_types::Vertiport>>, StatusCode> {
+    Ok(Json(vec![
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-0-0".to_string(),
+            label: "Golden Gate Park West (Bison Paddock)".to_string(),
+            latitude: 37.76969,
+            longitude: -122.49819,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-0-1".to_string(),
+            label: "Golden Gate Park East (California Academy of Sciences)".to_string(),
+            latitude: 37.77007,
+            longitude: -122.46398,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-1-0".to_string(),
+            label: "Oracle Park Pier (Go Giants!)".to_string(),
+            latitude: 37.77832,
+            longitude: -122.38630,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-2-0".to_string(),
+            label: "Pier 39".to_string(),
+            latitude: 37.81119,
+            longitude: -122.40928,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-3-0".to_string(),
+            label: "Alcatraz Island (Parade Ground)".to_string(),
+            latitude: 37.82579,
+            longitude: -122.42145,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-4-0".to_string(),
+            label: "Treasure Island".to_string(),
+            latitude: 37.82232,
+            longitude: -122.37385,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-5-0".to_string(),
+            label: "Presidio (Pershing Square)".to_string(),
+            latitude: 37.79871,
+            longitude: -122.45875,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-6-0".to_string(),
+            label: "Lincoln Park East".to_string(),
+            latitude: 37.78189,
+            longitude: -122.49394,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-7-0".to_string(),
+            label: "Civic Center South (Reddit Tower)".to_string(),
+            latitude: 37.77562,
+            longitude: -122.41785,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-8-0".to_string(),
+            label: "Saint Francis Memorial Hospital (Non-Emergency)".to_string(),
+            latitude: 37.79039,
+            longitude: -122.41629,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-8-0".to_string(),
+            label: "Marina Green".to_string(),
+            latitude: 37.80622,
+            longitude: -122.43473,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-9-0".to_string(),
+            label: "Salesforce Park".to_string(),
+            latitude: 37.78892,
+            longitude: -122.39715,
+        },
+        rest_types::Vertiport {
+            id: "USA-WEST-SAN_FRANCISCO-10-0".to_string(),
+            label: "Fillmore District".to_string(),
+            latitude: 37.78383,
+            longitude: -122.43140,
+        },
+    ]))
     // TODO Eventually _payload will have lat and long
-    let request = tonic::Request::new(grpc_clients::VertiportFilter {});
+    // let request = tonic::Request::new(grpc_clients::VertiportFilter {});
 
-    // Get Client
-    let client_option = grpc_clients.storage.get_client().await;
-    if client_option.is_none() {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    }
-    let mut client = client_option.unwrap();
+    // // Get Client
+    // let client_option = grpc_clients.storage.get_client().await;
+    // if client_option.is_none() {
+    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
+    // }
+    // let mut client = client_option.unwrap();
 
-    // Make request, process response
-    let response = client.vertiports(request).await;
-    match response {
-        Ok(r) => {
-            let ret = r
-                .into_inner()
-                .vertiports
-                .into_iter()
-                .map(|x| rest_types::Vertiport {
-                    id: x.id,
-                    label: x.label,
-                    latitude: x.latitude,
-                    longitude: x.longitude,
-                })
-                .collect();
+    // // Make request, process response
+    // let response = client.vertiports(request).await;
+    // match response {
+    //     Ok(r) => {
+    //         let ret = r
+    //             .into_inner()
+    //             .vertiports
+    //             .into_iter()
+    //             .map(|x| rest_types::Vertiport {
+    //                 id: x.id,
+    //                 label: x.label,
+    //                 latitude: x.latitude,
+    //                 longitude: x.longitude,
+    //             })
+    //             .collect();
 
-            Ok(Json(ret))
-        }
-        Err(_) => {
-            // TODO Better Error Output
-            Err(StatusCode::BAD_REQUEST)
-        }
-    }
+    //         Ok(Json(ret))
+    //     }
+    //     Err(_) => {
+    //         // TODO Better Error Output
+    //         Err(StatusCode::BAD_REQUEST)
+    //     }
+    // }
 }
 
 /// Search FlightOptions by query params.

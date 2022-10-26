@@ -121,7 +121,7 @@ pub struct FlightConfirm {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Vertiport {
     /// The unique ID of the vertiport
-    pub id: u32,
+    pub id: String,
 
     /// The human-readable label of the vertiport
     #[schema(example = "Mercy Hospital (Public)")]
