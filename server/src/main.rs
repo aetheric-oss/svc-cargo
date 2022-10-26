@@ -154,19 +154,19 @@ pub async fn query_vertiports(
             longitude: -122.41629,
         },
         rest_types::Vertiport {
-            id: "USA-WEST-SAN_FRANCISCO-8-0".to_string(),
+            id: "USA-WEST-SAN_FRANCISCO-9-0".to_string(),
             label: "Marina Green".to_string(),
             latitude: 37.80622,
             longitude: -122.43473,
         },
         rest_types::Vertiport {
-            id: "USA-WEST-SAN_FRANCISCO-9-0".to_string(),
+            id: "USA-WEST-SAN_FRANCISCO-10-0".to_string(),
             label: "Salesforce Park".to_string(),
             latitude: 37.78892,
             longitude: -122.39715,
         },
         rest_types::Vertiport {
-            id: "USA-WEST-SAN_FRANCISCO-10-0".to_string(),
+            id: "USA-WEST-SAN_FRANCISCO-11-0".to_string(),
             label: "Fillmore District".to_string(),
             latitude: 37.78383,
             longitude: -122.43140,
