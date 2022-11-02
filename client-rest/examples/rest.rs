@@ -1,8 +1,8 @@
 //! Example communication with this service
 
-use chrono::{Duration, NaiveDate};
 use hyper::{Body, Client, Method, Request, Response};
 use hyper::{Error, StatusCode};
+use std::time::{Duration, SystemTime};
 use svc_cargo_client_rest::types::*;
 
 fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (bool, String) {
@@ -37,7 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // POST /cargo/vertiports
     {
-        let data = VertiportsQuery::new(32.7262, 117.1544);
+        let data = VertiportsQuery {
+            latitude: 32.7262,
+            longitude: 117.1544,
+        };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_VERTIPORTS);
         let req = Request::builder()
@@ -98,14 +101,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // POST /cargo/query
     {
-        let depart_timestamp_min = NaiveDate::from_ymd(1999, 12, 31).and_hms(23, 59, 59);
-        let data = FlightQuery::new(
-            "vertiport_1".to_string(),
-            "vertiport_2".to_string(),
-            depart_timestamp_min,
-            depart_timestamp_min + Duration::hours(1),
-            1.0,
-        );
+        let depart_timestamp_min = SystemTime::now();
+        let data = FlightQuery {
+            vertiport_depart_id: "vertiport_1".to_string(),
+            vertiport_arrive_id: "vertiport_2".to_string(),
+            timestamp_depart_min: Some(depart_timestamp_min),
+            timestamp_depart_max: Some(depart_timestamp_min + Duration::from_secs(360)),
+            timestamp_arrive_min: None,
+            timestamp_arrive_max: None,
+            cargo_weight_kg: 1.0,
+        };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_QUERY);
         let req = Request::builder()

@@ -1,3 +1,28 @@
+## [Release 0.3.1-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.1-develop.0)
+
+### 🐛 Fixes
+
+- update storage and scheduler connections to new api ([`799797f`](https://github.com/Arrow-air/svc-cargo/commit/799797f818c906955fa053e957493e90934e212d))
+
+### 🛠 Maintenance
+
+-  **ci:** update changelog ([`22bdc1b`](https://github.com/Arrow-air/svc-cargo/commit/22bdc1bc62a8986ed0ad1fbc4fbd4777786497e7))
+-  **ci:** update package version ([`34715bb`](https://github.com/Arrow-air/svc-cargo/commit/34715bb1539bd6b35c16a27fc68648487d703f8a))
+-  **ci:** update package version<br/><br/>[skip ci] ([`3c8de83`](https://github.com/Arrow-air/svc-cargo/commit/3c8de833edc2f0e67276bb30a4f0cf0949ebc594))
+
+## [Release 0.3.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.0-develop.0)
+
+### ✨ Features
+
+-  **rest:** update REST API to accept arrival time window for flight query ([`5d7ecef`](https://github.com/Arrow-air/svc-cargo/commit/5d7eceff19d59f58f23e497513e1a107246864ac))
+
+### 🛠 Maintenance
+
+-  **ci:** update changelog ([`03683b0`](https://github.com/Arrow-air/svc-cargo/commit/03683b0b6db315f08600999a2d62ac1378afa611))
+-  **ci:** update package version ([`41e35bb`](https://github.com/Arrow-air/svc-cargo/commit/41e35bb459aea4d519731894aaf7c76647d3634d))
+-  **ci:** update package version<br/><br/>[skip ci] ([`9be5a32`](https://github.com/Arrow-air/svc-cargo/commit/9be5a3245da8b783d26e135a80e010590ae9e38e))
+-  **ci:** fix release workflow ([`67bc528`](https://github.com/Arrow-air/svc-cargo/commit/67bc5284b14e5e6da66cc29a23c2163d08d36e30))
+
 ## [Release 0.2.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.2.0-develop.0)
 
 ### ✨ Features
@@ -56,4 +81,3 @@
 -  **ci:** dockerfile - provisioned by terraform ([`d903235`](https://github.com/Arrow-air/svc-cargo/commit/d903235d671018c855a355e7fc8831f2016b5d48))
 -  **ci:** docker-compose.yml - provisioned by terraform ([`e96411f`](https://github.com/Arrow-air/svc-cargo/commit/e96411f9ca6f46ae9a169477343d6eee83f8626e))
 - add CHANGELOG.md ([`a90cbde`](https://github.com/Arrow-air/svc-cargo/commit/a90cbdebac721a25fc9ecab4d378c01c5e940e67))
-
