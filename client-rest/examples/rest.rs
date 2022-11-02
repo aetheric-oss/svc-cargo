@@ -99,13 +99,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // POST /cargo/query
     {
         let depart_timestamp_min = NaiveDate::from_ymd(1999, 12, 31).and_hms(23, 59, 59);
-        let data = FlightQuery::new(
-            "vertiport_1".to_string(),
-            "vertiport_2".to_string(),
-            depart_timestamp_min,
-            depart_timestamp_min + Duration::hours(1),
-            1.0,
-        );
+        let data = FlightQuery {
+            vertiport_depart_id: "vertiport_1".to_string(),
+            vertiport_arrive_id: "vertiport_2".to_string(),
+            timestamp_depart_min: Some(depart_timestamp_min),
+            timestamp_depart_max: Some(depart_timestamp_min + Duration::hours(1)),
+            timestamp_arrive_min: None,
+            timestamp_arrive_max: None,
+            cargo_weight_kg: 1.0,
+        };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_QUERY);
         let req = Request::builder()

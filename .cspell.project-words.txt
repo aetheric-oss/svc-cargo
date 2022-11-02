@@ -28,3 +28,5 @@ tcort
 microservices
 healthcheck
 commitlint
+codeowners
+commitlintrc

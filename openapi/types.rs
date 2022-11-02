@@ -21,37 +21,26 @@ pub const ENDPOINT_VERTIPORTS: &str = "/cargo/vertiports";
 #[derive(Debug, Clone, IntoParams, ToSchema)]
 #[derive(Deserialize, Serialize)]
 pub struct FlightQuery {
-    vertiport_depart_id: String,
-    vertiport_arrive_id: String,
-    timestamp_depart_min: NaiveDateTime,
-    timestamp_depart_max: NaiveDateTime,
-    cargo_weight_kg: f32,
-}
+    /// The String ID of the vertiport to leave from
+    pub vertiport_depart_id: String,
 
-impl FlightQuery {
-    /// Creates a new flight query with required fields
-    /// # Arguments
-    /// vertiport_depart_id: The String ID of the vertiport to leave from
-    /// vertiport_arrive_id: The String ID of the destination vertiport
-    /// timestamp_depart_min: The start of the pad departure window
-    /// timestamp_depart_max: The end of the pad departure window
-    /// cargo_weight_kg: The approximate weight of the cargo
-    #[allow(dead_code)]
-    pub fn new(
-        vertiport_depart_id: String,
-        vertiport_arrive_id: String,
-        timestamp_depart_min: NaiveDateTime,
-        timestamp_depart_max: NaiveDateTime,
-        cargo_weight_kg: f32,
-    ) -> Self {
-        FlightQuery {
-            vertiport_depart_id,
-            vertiport_arrive_id,
-            timestamp_depart_min,
-            timestamp_depart_max,
-            cargo_weight_kg,
-        }
-    }
+    /// The String ID of the destination vertiport
+    pub vertiport_arrive_id: String,
+
+    /// The start of the pad departure window
+    pub timestamp_depart_min: Option<NaiveDateTime>,
+
+    /// The end of the pad departure window
+    pub timestamp_depart_max: Option<NaiveDateTime>,
+
+    /// The start of the pad arrival window
+    pub timestamp_arrive_min: Option<NaiveDateTime>,
+
+    /// The end of the pad arrival window
+    pub timestamp_arrive_max: Option<NaiveDateTime>,
+
+    /// The estimated weight of cargo
+    pub cargo_weight_kg: f32,
 }
 
 /// Request Body Information to Cancel a Flight
