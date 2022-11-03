@@ -18,7 +18,20 @@ use axum::{extract::Extension, handler::Handler, response::IntoResponse, routing
 use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
 use grpc_clients::GrpcClients;
 use hyper::{HeaderMap, StatusCode};
+use std::time::SystemTime;
 use utoipa::OpenApi;
+
+///////////////////////////////////////////////////////////////////////
+/// Constants
+///////////////////////////////////////////////////////////////////////
+const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
+
+///////////////////////////////////////////////////////////////////////
+/// Helpers
+///////////////////////////////////////////////////////////////////////
+fn is_uuid(s: &str) -> bool {
+    uuid::Uuid::parse_str(s).is_ok()
+}
 
 ///////////////////////////////////////////////////////////////////////
 /// GRPC SERVER
@@ -75,9 +88,9 @@ async fn grpc_server() {
 /// REST SERVER
 ///////////////////////////////////////////////////////////////////////
 
-/// Get All Vertiports in a Region
+/// Get all vertiports in a region
 ///
-/// List all Vertiport items from svc-storage
+/// List all vertiport items from svc-storage
 #[utoipa::path(
     post,
     path = "/cargo/vertiports",
@@ -90,14 +103,22 @@ async fn grpc_server() {
 pub async fn query_vertiports(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(_payload): Json<rest_types::VertiportsQuery>,
-) -> Result<Json<Vec<rest_types::Vertiport>>, StatusCode> {
-    // TODO Eventually _payload will have lat and long
-    let request = tonic::Request::new(grpc_clients::VertiportFilter {});
+) -> Result<Json<Vec<rest_types::Vertiport>>, (StatusCode, String)> {
+    // Will provide Lat, Long
+    let request = tonic::Request::new(grpc_clients::SearchFilter {
+        search_field: "".to_string(),
+        search_value: "".to_string(),
+        page_number: 1,
+        results_per_page: 50,
+    });
 
     // Get Client
     let client_option = grpc_clients.storage.get_client().await;
     if client_option.is_none() {
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "storage service is unavailable.".to_string(),
+        ));
     }
     let mut client = client_option.unwrap();
 
@@ -109,20 +130,20 @@ pub async fn query_vertiports(
                 .into_inner()
                 .vertiports
                 .into_iter()
-                .map(|x| rest_types::Vertiport {
-                    id: x.id.to_string(),
-                    label: x.label,
-                    latitude: x.latitude,
-                    longitude: x.longitude,
+                .map(|x| {
+                    let data = x.data.unwrap();
+                    rest_types::Vertiport {
+                        id: x.id,
+                        label: data.description,
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                    }
                 })
                 .collect();
 
             Ok(Json(ret))
         }
-        Err(_) => {
-            // TODO Better Error Output
-            Err(StatusCode::BAD_REQUEST)
-        }
+        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
     }
 }
 
@@ -138,53 +159,111 @@ pub async fn query_vertiports(
     )
 )]
 pub async fn query_flight(
-    Extension(_grpc_clients): Extension<GrpcClients>,
-    Json(_payload): Json<rest_types::FlightQuery>,
-) -> Result<Json<Vec<rest_types::FlightOption>>, StatusCode> {
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<rest_types::FlightQuery>,
+) -> Result<Json<Vec<rest_types::FlightOption>>, (StatusCode, String)> {
+    // Reject extreme weights
+    let weight_g: u32 = (payload.cargo_weight_kg * 1000.0) as u32;
+    if weight_g >= MAX_CARGO_WEIGHT_G {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Request cargo weight exceeds {MAX_CARGO_WEIGHT_G}."),
+        ));
+    }
 
-    // TODO Need change to svc-scheduler grpc to accept vertiport IDs
+    // Check UUID validity
+    if !is_uuid(&payload.vertiport_arrive_id) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Arrival vertiport ID is not UUID format.".to_string(),
+        ));
+    }
 
-    // let request = tonic::Request::new(grpc_clients::QueryFlightRequest {
-    //     is_cargo: true,
-    //     persons: 0,
-    //     weight_grams: payload.cargo_weight_kg,
-    //     requested_time: payload.timestamp_depart_min,
-    //     vertiport_depart_id: payload.vertiport_depart_id,
-    //     vertiport_arrive_id: payload.vertiport_arrive_id,
-    // });
+    if !is_uuid(&payload.vertiport_depart_id) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Departure vertiport ID is not UUID format.".to_string(),
+        ));
+    }
 
+    let mut flight_query = grpc_clients::QueryFlightRequest {
+        is_cargo: true,
+        persons: None,
+        weight_grams: Some(weight_g),
+        vertiport_depart_id: payload.vertiport_depart_id,
+        vertiport_arrive_id: payload.vertiport_arrive_id,
+        arrival_time: None,
+        departure_time: None,
+    };
+
+    let current_time = SystemTime::now();
+
+    let by_arrival: bool =
+        payload.timestamp_arrive_min.is_some() && payload.timestamp_arrive_max.is_some();
+    let by_departure: bool =
+        payload.timestamp_depart_min.is_some() && payload.timestamp_depart_max.is_some();
+
+    // Time windows are properly specified
+    if by_arrival {
+        let timestamp = payload.timestamp_arrive_max.unwrap();
+        if timestamp <= current_time {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Provided time is in the past.".to_string(),
+            ));
+        }
+
+        flight_query.arrival_time = Some(timestamp.into());
+    } else if by_departure {
+        let timestamp = payload.timestamp_depart_max.unwrap();
+
+        if timestamp <= current_time {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Provided time is in the past.".to_string(),
+            ));
+        }
+
+        flight_query.departure_time = Some(timestamp.into());
+    } else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid time window provided.".to_string(),
+        ));
+    }
+
+    let request = tonic::Request::new(flight_query);
     // Get Client
-    // let client_option = grpc_clients.scheduler.get_client().await;
-    // if client_option.is_none() {
-    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
-    // }
-    // let mut client = client_option.unwrap();
+    let client_option = grpc_clients.scheduler.get_client().await;
+    if client_option.is_none() {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "scheduler service unavailable.".to_string(),
+        ));
+    }
+    let mut client = client_option.unwrap();
 
-    // // Make request, process response
-    // let response = client.query_flight(request).await;
-    // match response {
-    //     Ok(r) => {
-    //         let ret = r
-    //             .into_inner()
-    //             .flights
-    //             .into_iter()
-    //             .map(|x| rest_types::FlightOption {
-    //                  fp_id: x.id,
-    //                  vertiport_depart_id: x.vertiport_id_departure,
-    //                  vertiport_arrive_id: x.vertiport_id_destination,
-    //                  timestamp_depart: x.estimated_departure,
-    //                  timestamp_arrive: x.estimated_arrival
-    //             })
-    //             .collect();
+    // Make request, process response
+    let response = client.query_flight(request).await;
+    match response {
+        Ok(r) => {
+            let ret = r
+                .into_inner()
+                .flights
+                .into_iter()
+                .map(|x| rest_types::FlightOption {
+                    fp_id: x.id,
+                    vertiport_depart_id: x.vertiport_id_departure.to_string(),
+                    vertiport_arrive_id: x.vertiport_id_destination.to_string(),
+                    timestamp_depart: SystemTime::try_from(x.estimated_departure.unwrap()).unwrap(),
+                    timestamp_arrive: SystemTime::try_from(x.estimated_arrival.unwrap()).unwrap(),
+                })
+                .collect();
 
-    //         Ok(Json(ret))
-    //     }
-    //     Err(_) => {
-    //         // TODO Better Error Output
-    //         Err(StatusCode::BAD_REQUEST)
-    //     }
-    // }
+            Ok(Json(ret))
+        }
+        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+    }
 }
 
 /// Confirm a Flight
@@ -204,39 +283,45 @@ pub async fn query_flight(
     )
 )]
 pub async fn confirm_flight(
-    Extension(_grpc_clients): Extension<GrpcClients>,
-    Json(_payload): Json<rest_types::FlightConfirm>,
+    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<rest_types::FlightConfirm>,
     _headers: HeaderMap,
-) -> Result<(), StatusCode> {
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+) -> Result<(), (StatusCode, String)> {
+    if !is_uuid(&payload.fp_id) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid flight plan UUID.".to_string(),
+        ));
+    }
 
-    // TODO svc-scheduler STRING ID, currently u32
-    // let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
+    let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
 
-    // // Get Client
-    // let client_option = grpc_clients.scheduler.get_client().await;
-    // if client_option.is_none() {
-    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
-    // }
-    // let mut client = client_option.unwrap();
+    // Get Client
+    let client_option = grpc_clients.scheduler.get_client().await;
+    if client_option.is_none() {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "scheduler service is unavailable.".to_string(),
+        ));
+    }
+    let mut client = client_option.unwrap();
 
-    // // Make request, process response
-    // let response = client.confirm_flight(request).await;
-    // match response {
-    //     Ok(r) => {
-    //         let ret = r.into_inner();
-    //         if ret.confirmed {
-    //             return Ok(rest_types::ConfirmStatus::Success)
-    //         } else {
-    //             //  TODO error types from svc-scheduler
-    //             return Ok(rest_types::ConfirmStatus::Conflict("Could not confirm flight".to_string()))
-    //         }
-    //     }
-    //     Err(_) => {
-    //         // TODO Better Error Output
-    //         Err(StatusCode::BAD_REQUEST)
-    //     }
-    // }
+    // Make request, process response
+    let response = client.confirm_flight(request).await;
+    match response {
+        Ok(r) => {
+            let ret = r.into_inner();
+            if ret.confirmed {
+                Ok(())
+            } else {
+                Err((
+                    StatusCode::CONFLICT,
+                    "Could not confirm flight.".to_string(),
+                ))
+            }
+        }
+        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+    }
 }
 
 /// Cancel flight
@@ -256,40 +341,42 @@ pub async fn confirm_flight(
     )
 )]
 pub async fn cancel_flight(
-    Extension(_grpc_clients): Extension<GrpcClients>,
-    Json(_payload): Json<rest_types::FlightCancel>,
+    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<rest_types::FlightCancel>,
     _headers: HeaderMap,
-) -> Result<StatusCode, StatusCode> {
-    Err(StatusCode::SERVICE_UNAVAILABLE)
+) -> Result<StatusCode, (StatusCode, String)> {
+    if !is_uuid(&payload.fp_id) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid flight plan UUID.".to_string(),
+        ));
+    }
 
-    // TODO svc-scheduler STRING ID, currently u32
-    // let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
+    let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
 
-    // // Get Client
-    // let client_option = grpc_clients.scheduler.get_client().await;
-    // if client_option.is_none() {
-    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
-    // }
-    // let mut client = client_option.unwrap();
+    // Get Client
+    let client_option = grpc_clients.scheduler.get_client().await;
+    if client_option.is_none() {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            "scheduler service unavailable.".to_string(),
+        ));
+    }
+    let mut client = client_option.unwrap();
 
-    // // Make request, process response
-    // let response = client.cancel_flight(request).await;
-    // match response {
-    //     Ok(r) => {
-    //         let ret = r.into_inner();
-    //         if ret.cancelled {
-    //             return Ok(StatusCode::OK)
-    //         } else {
-    //             //  TODO error types from svc-scheduler
-    //             return Err(ret.reason)
-    //         }
-    //     }
-    //     Err(_) => {
-    //         // TODO Better Error Output
-    //         Err(StatusCode::BAD_REQUEST)
-    //     }
-    // }
-    // Err(StatusCode::SERVICE_UNAVAILABLE)
+    // Make request, process response
+    let response = client.cancel_flight(request).await;
+    match response {
+        Ok(r) => {
+            let ret = r.into_inner();
+            if ret.cancelled {
+                Ok(StatusCode::OK)
+            } else {
+                Err((StatusCode::CONFLICT, ret.reason))
+            }
+        }
+        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+    }
 }
 
 /// Responds a NOT_FOUND status and error string
