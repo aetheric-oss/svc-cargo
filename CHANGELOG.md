@@ -56,4 +56,3 @@
 -  **ci:** dockerfile - provisioned by terraform ([`d903235`](https://github.com/Arrow-air/svc-cargo/commit/d903235d671018c855a355e7fc8831f2016b5d48))
 -  **ci:** docker-compose.yml - provisioned by terraform ([`e96411f`](https://github.com/Arrow-air/svc-cargo/commit/e96411f9ca6f46ae9a169477343d6eee83f8626e))
 - add CHANGELOG.md ([`a90cbde`](https://github.com/Arrow-air/svc-cargo/commit/a90cbdebac721a25fc9ecab4d378c01c5e940e67))
-
