@@ -1,18 +1,19 @@
 use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
-use svc_scheduler_client::svc_scheduler::scheduler_client::SchedulerClient;
-use svc_storage_client_grpc::client::storage_rpc_client::StorageRpcClient;
+use svc_scheduler_client::grpc::scheduler_rpc_client::SchedulerRpcClient;
+use svc_storage_client_grpc::client::vertiport_rpc_client::VertiportRpcClient;
 use tonic::transport::Channel;
 
 use futures::lock::Mutex;
 use std::sync::Arc;
 
-pub use svc_scheduler_client::svc_scheduler::{Id, QueryFlightRequest};
-pub use svc_storage_client_grpc::client::VertiportFilter;
+pub use svc_scheduler_client::grpc::{Id, QueryFlightRequest};
+pub use svc_storage_client_grpc::client::SearchFilter;
+pub use svc_storage_client_grpc::client::VertiportData;
 
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
-    pub scheduler: GrpcClient<SchedulerClient<Channel>>,
-    pub storage: GrpcClient<StorageRpcClient<Channel>>,
+    pub scheduler: GrpcClient<SchedulerRpcClient<Channel>>,
+    pub storage: GrpcClient<VertiportRpcClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
@@ -41,25 +42,25 @@ impl<T> GrpcClient<T> {
         let mut client = arc.lock().await;
         *client = None;
     }
-}
 
-// TODO Figure out how to collapse these three implementations for each client into
-//   one generic impl. StorageRpcClient does not simply impl a trait,
-//   it wraps the tonic::client::Grpc<T> type so it's a bit tricky
-impl GrpcClient<StorageRpcClient<Channel>> {
     pub fn new(port_env: &str) -> Self {
-        let opt: Option<StorageRpcClient<Channel>> = None;
+        let opt: Option<T> = None;
         GrpcClient {
             inner: Arc::new(Mutex::new(opt)),
             address: get_grpc_endpoint(port_env),
         }
     }
+}
 
-    pub async fn get_client(&mut self) -> Option<StorageRpcClient<Channel>> {
+// TODO Figure out how to collapse these three implementations for each client into
+//   one generic impl. VertiportRpcClient does not simply impl a trait,
+//   it wraps the tonic::client::Grpc<T> type so it's a bit tricky
+impl GrpcClient<VertiportRpcClient<Channel>> {
+    pub async fn get_client(&mut self) -> Option<VertiportRpcClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
         if client.is_none() {
-            let client_option = match StorageRpcClient::connect(self.address.clone()).await {
+            let client_option = match VertiportRpcClient::connect(self.address.clone()).await {
                 Ok(s) => Some(s),
                 Err(e) => {
                     println!(
@@ -78,14 +79,6 @@ impl GrpcClient<StorageRpcClient<Channel>> {
 }
 
 impl GrpcClient<PricingClient<Channel>> {
-    pub fn new(port_env: &str) -> Self {
-        let opt: Option<PricingClient<Channel>> = None;
-        GrpcClient {
-            inner: Arc::new(Mutex::new(opt)),
-            address: get_grpc_endpoint(port_env),
-        }
-    }
-
     pub async fn get_client(&mut self) -> Option<PricingClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
@@ -108,29 +101,22 @@ impl GrpcClient<PricingClient<Channel>> {
     }
 }
 
-impl GrpcClient<SchedulerClient<Channel>> {
-    pub fn new(port_env: &str) -> Self {
-        let opt: Option<SchedulerClient<Channel>> = None;
-        GrpcClient {
-            inner: Arc::new(Mutex::new(opt)),
-            address: get_grpc_endpoint(port_env),
-        }
-    }
-
-    pub async fn get_client(&mut self) -> Option<SchedulerClient<Channel>> {
+impl GrpcClient<SchedulerRpcClient<Channel>> {
+    pub async fn get_client(&mut self) -> Option<SchedulerRpcClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
         if client.is_none() {
-            let client_option = match SchedulerClient::connect(self.address.clone()).await {
-                Ok(s) => Some(s),
-                Err(e) => {
-                    println!(
-                        "Unable to connect to svc-scheduler at {}; {}",
-                        self.address, e
-                    );
-                    None
-                }
-            };
+            let client_option =
+                match SchedulerRpcClient::<Channel>::connect(self.address.clone()).await {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        println!(
+                            "Unable to connect to svc-scheduler at {}; {}",
+                            self.address, e
+                        );
+                        None
+                    }
+                };
 
             *client = client_option;
         }
@@ -142,8 +128,8 @@ impl GrpcClient<SchedulerClient<Channel>> {
 impl GrpcClients {
     pub fn default() -> Self {
         GrpcClients {
-            scheduler: GrpcClient::<SchedulerClient<Channel>>::new("SCHEDULER_PORT_GRPC"),
-            storage: GrpcClient::<StorageRpcClient<Channel>>::new("STORAGE_PORT_GRPC"),
+            scheduler: GrpcClient::<SchedulerRpcClient<Channel>>::new("SCHEDULER_PORT_GRPC"),
+            storage: GrpcClient::<VertiportRpcClient<Channel>>::new("STORAGE_PORT_GRPC"),
             pricing: GrpcClient::<PricingClient<Channel>>::new("PRICING_PORT_GRPC"),
         }
     }

@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo"
-version = "0.2.0-develop.0"
+version = "0.3.0-develop.0"
 dependencies = [
  "axum",
  "cargo-husky",
@@ -1143,11 +1143,12 @@ dependencies = [
  "tonic-health",
  "utoipa",
  "utoipa-swagger-ui",
+ "uuid",
 ]
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.2.0-develop.0"
+version = "0.3.0-develop.0"
 dependencies = [
  "prost",
  "prost-types",
@@ -1170,7 +1171,7 @@ dependencies = [
 [[package]]
 name = "svc-pricing-client"
 version = "0.1.0"
-source = "git+https://github.com/Arrow-air/svc-pricing/?branch=develop#64fc2fefebfb0dcec2c593c8707a96b6e77410b4"
+source = "git+https://github.com/Arrow-air/svc-pricing#a671894ad0554579d87cb9e2c2d3a15914dee3d5"
 dependencies = [
  "prost",
  "prost-types",
@@ -1180,7 +1181,7 @@ dependencies = [
 [[package]]
 name = "svc-scheduler-client"
 version = "0.1.0"
-source = "git+https://github.com/Arrow-air/svc-scheduler/?branch=develop#c7354d311d70a7ba62e31a9f7771e546c4b9d532"
+source = "git+https://github.com/Arrow-air/svc-scheduler#43611676a4a4b372daf385492335719beda2031a"
 dependencies = [
  "prost",
  "prost-types",
@@ -1189,12 +1190,13 @@ dependencies = [
 
 [[package]]
 name = "svc-storage-client-grpc"
-version = "0.2.0-develop.0"
-source = "git+https://github.com/Arrow-air/svc-storage/#89ab9c84edf4faba8281316a0c143292f72f5b85"
+version = "0.3.0-develop.0"
+source = "git+https://github.com/Arrow-air/svc-storage#96d73d7efa8da78f6488312f701ce5fdb2453024"
 dependencies = [
  "prost",
  "prost-types",
  "tonic",
+ "uuid",
 ]
 
 [[package]]
@@ -1544,6 +1546,15 @@ dependencies = [
  "serde_json",
  "utoipa",
  "zip",
+]
+
+[[package]]
+name = "uuid"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "feb41e78f93363bb2df8b0e86a2ca30eed7806ea16ea0c790d757cf93f79be83"
+dependencies = [
+ "getrandom",
 ]
 
 [[package]]

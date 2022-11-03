@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-use chrono::NaiveDateTime;
+use std::time::SystemTime;
 
 /// API Endpoint to Cancel a Flight
 pub const ENDPOINT_CANCEL: &str = "/cargo/cancel";
@@ -28,16 +28,16 @@ pub struct FlightQuery {
     pub vertiport_arrive_id: String,
 
     /// The start of the pad departure window
-    pub timestamp_depart_min: Option<NaiveDateTime>,
+    pub timestamp_depart_min: Option<SystemTime>,
 
     /// The end of the pad departure window
-    pub timestamp_depart_max: Option<NaiveDateTime>,
+    pub timestamp_depart_max: Option<SystemTime>,
 
     /// The start of the pad arrival window
-    pub timestamp_arrive_min: Option<NaiveDateTime>,
+    pub timestamp_arrive_min: Option<SystemTime>,
 
     /// The end of the pad arrival window
-    pub timestamp_arrive_max: Option<NaiveDateTime>,
+    pub timestamp_arrive_max: Option<SystemTime>,
 
     /// The estimated weight of cargo
     pub cargo_weight_kg: f32,
@@ -59,22 +59,11 @@ pub struct FlightCancel {
 #[derive(Deserialize, Serialize)]
 #[derive(ToSchema)]
 pub struct VertiportsQuery {
-    latitude: f32,
-    longitude: f32,
-}
+    /// Latitude of Client
+    pub latitude: f32,
 
-impl VertiportsQuery {
-    /// Creates a region query with required fields
-    /// # Arguments
-    /// lat: Latitude in Float format
-    /// long: Longitude in Float format
-    #[allow(dead_code)]
-    pub fn new(lat: f32, long: f32) -> Self {
-        VertiportsQuery {
-            latitude: lat,
-            longitude: long,
-        }
-    }
+    /// Longitude of Client
+    pub longitude: f32,
 }
 
 /// Flight Plan Option
@@ -90,10 +79,10 @@ pub struct FlightOption {
     pub vertiport_arrive_id: String,
 
     /// Estimated departure timestamp
-    pub timestamp_depart: NaiveDateTime,
+    pub timestamp_depart: SystemTime,
 
     /// Estimated arrival timestamp
-    pub timestamp_arrive: NaiveDateTime
+    pub timestamp_arrive: SystemTime
 }
 
 
