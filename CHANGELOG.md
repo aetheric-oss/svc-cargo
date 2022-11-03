@@ -1,3 +1,15 @@
+## [Release 0.3.1-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.1-develop.0)
+
+### 🐛 Fixes
+
+- update storage and scheduler connections to new api ([`799797f`](https://github.com/Arrow-air/svc-cargo/commit/799797f818c906955fa053e957493e90934e212d))
+
+### 🛠 Maintenance
+
+-  **ci:** update changelog ([`22bdc1b`](https://github.com/Arrow-air/svc-cargo/commit/22bdc1bc62a8986ed0ad1fbc4fbd4777786497e7))
+-  **ci:** update package version ([`34715bb`](https://github.com/Arrow-air/svc-cargo/commit/34715bb1539bd6b35c16a27fc68648487d703f8a))
+-  **ci:** update package version<br/><br/>[skip ci] ([`3c8de83`](https://github.com/Arrow-air/svc-cargo/commit/3c8de833edc2f0e67276bb30a4f0cf0949ebc594))
+
 ## [Release 0.3.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.0-develop.0)
 
 ### ✨ Features
