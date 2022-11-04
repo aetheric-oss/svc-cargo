@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // PUT /cargo/confirm
     {
         let data = FlightConfirm {
-            fp_id: "TEST".to_string(),
+            fp_id: "0fc37762-c423-417c-94bc-5d6d452322d7".to_string(),
         };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}{}", url, ENDPOINT_CONFIRM);
@@ -103,8 +103,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let depart_timestamp_min = SystemTime::now();
         let data = FlightQuery {
-            vertiport_depart_id: "vertiport_1".to_string(),
-            vertiport_arrive_id: "vertiport_2".to_string(),
+            vertiport_depart_id: "0fc37762-c423-417c-94bc-5d6d452322b5".to_string(),
+            vertiport_arrive_id: "ded63896-ca6b-42ea-b99d-73e0fe1587f0".to_string(),
             timestamp_depart_min: Some(depart_timestamp_min),
             timestamp_depart_max: Some(depart_timestamp_min + Duration::from_secs(360)),
             timestamp_arrive_min: None,

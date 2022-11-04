@@ -26,8 +26,8 @@ pub struct GrpcClient<T> {
 fn get_grpc_endpoint(env_port: &str) -> String {
     let port = match std::env::var(env_port) {
         Ok(s) => s,
-        Err(_) => {
-            println!("Unable to get environment variable {}", { env_port });
+        Err(e) => {
+            println!("{}: {}", env_port, e);
             "".to_string()
         }
     };

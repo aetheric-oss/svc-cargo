@@ -24,14 +24,14 @@ use utoipa::OpenApi;
 ///////////////////////////////////////////////////////////////////////
 /// Constants
 ///////////////////////////////////////////////////////////////////////
-const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
+// const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
 ///////////////////////////////////////////////////////////////////////
 /// Helpers
 ///////////////////////////////////////////////////////////////////////
-fn is_uuid(s: &str) -> bool {
-    uuid::Uuid::parse_str(s).is_ok()
-}
+// fn is_uuid(s: &str) -> bool {
+//     uuid::Uuid::parse_str(s).is_ok()
+// }
 
 ///////////////////////////////////////////////////////////////////////
 /// GRPC SERVER
@@ -64,9 +64,9 @@ impl CargoRpc for CargoGrpcImpl {
 async fn grpc_server() {
     // GRPC Server
     let grpc_port = std::env::var("DOCKER_PORT_GRPC")
-        .unwrap_or_else(|_| "50051".to_string())
+        .unwrap_or_else(|_| "50053".to_string())
         .parse::<u16>()
-        .unwrap_or(50051);
+        .unwrap_or(50053);
 
     let addr = format!("[::]:{grpc_port}").parse().unwrap();
     let imp = CargoGrpcImpl::default();
@@ -104,6 +104,7 @@ pub async fn query_vertiports(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(_payload): Json<rest_types::VertiportsQuery>,
 ) -> Result<Json<Vec<rest_types::Vertiport>>, (StatusCode, String)> {
+    println!("Entry!");
     // Will provide Lat, Long
     let request = tonic::Request::new(grpc_clients::SearchFilter {
         search_field: "".to_string(),
@@ -126,6 +127,7 @@ pub async fn query_vertiports(
     let response = client.vertiports(request).await;
     match response {
         Ok(r) => {
+            println!("{:?}", r);
             let ret = r
                 .into_inner()
                 .vertiports
@@ -164,27 +166,27 @@ pub async fn query_flight(
 ) -> Result<Json<Vec<rest_types::FlightOption>>, (StatusCode, String)> {
     // Reject extreme weights
     let weight_g: u32 = (payload.cargo_weight_kg * 1000.0) as u32;
-    if weight_g >= MAX_CARGO_WEIGHT_G {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            format!("Request cargo weight exceeds {MAX_CARGO_WEIGHT_G}."),
-        ));
-    }
+    // if weight_g >= MAX_CARGO_WEIGHT_G {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         format!("Request cargo weight exceeds {MAX_CARGO_WEIGHT_G}."),
+    //     ));
+    // }
 
-    // Check UUID validity
-    if !is_uuid(&payload.vertiport_arrive_id) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Arrival vertiport ID is not UUID format.".to_string(),
-        ));
-    }
+    // // Check UUID validity
+    // if !is_uuid(&payload.vertiport_arrive_id) {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         "Arrival vertiport ID is not UUID format.".to_string(),
+    //     ));
+    // }
 
-    if !is_uuid(&payload.vertiport_depart_id) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Departure vertiport ID is not UUID format.".to_string(),
-        ));
-    }
+    // if !is_uuid(&payload.vertiport_depart_id) {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         "Departure vertiport ID is not UUID format.".to_string(),
+    //     ));
+    // }
 
     let mut flight_query = grpc_clients::QueryFlightRequest {
         is_cargo: true,
@@ -198,39 +200,40 @@ pub async fn query_flight(
 
     let current_time = SystemTime::now();
 
-    let by_arrival: bool =
-        payload.timestamp_arrive_min.is_some() && payload.timestamp_arrive_max.is_some();
-    let by_departure: bool =
-        payload.timestamp_depart_min.is_some() && payload.timestamp_depart_max.is_some();
+    // let by_arrival: bool =
+    //     payload.timestamp_arrive_min.is_some() && payload.timestamp_arrive_max.is_some();
+    // let by_departure: bool =
+    //     payload.timestamp_depart_min.is_some() && payload.timestamp_depart_max.is_some();
 
-    // Time windows are properly specified
-    if by_arrival {
-        let timestamp = payload.timestamp_arrive_max.unwrap();
-        if timestamp <= current_time {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Provided time is in the past.".to_string(),
-            ));
-        }
+    // // Time windows are properly specified
+    // if by_arrival {
+    //     let timestamp = payload.timestamp_arrive_max.unwrap();
+    //     if timestamp <= current_time {
+    //         return Err((
+    //             StatusCode::BAD_REQUEST,
+    //             "Provided time is in the past.".to_string(),
+    //         ));
+    //     }
 
-        flight_query.arrival_time = Some(timestamp.into());
-    } else if by_departure {
-        let timestamp = payload.timestamp_depart_max.unwrap();
+    //     flight_query.arrival_time = Some(timestamp.into());
+    // } else if by_departure {
+    //     let timestamp = payload.timestamp_depart_max.unwrap();
 
-        if timestamp <= current_time {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Provided time is in the past.".to_string(),
-            ));
-        }
+    //     if timestamp <= current_time {
+    //         return Err((
+    //             StatusCode::BAD_REQUEST,
+    //             "Provided time is in the past.".to_string(),
+    //         ));
+    //     }
 
-        flight_query.departure_time = Some(timestamp.into());
-    } else {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Invalid time window provided.".to_string(),
-        ));
-    }
+    //     flight_query.departure_time = Some(timestamp.into());
+    // } else {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         "Invalid time window provided.".to_string(),
+    //     ));
+    // }
+    flight_query.arrival_time = Some(current_time.into());
 
     let request = tonic::Request::new(flight_query);
     // Get Client
@@ -262,7 +265,10 @@ pub async fn query_flight(
 
             Ok(Json(ret))
         }
-        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+        Err(e) => {
+            println!("CONFLICT query flight: {:?}", e);
+            Err((StatusCode::CONFLICT, e.to_string()))
+        }
     }
 }
 
@@ -287,12 +293,12 @@ pub async fn confirm_flight(
     Json(payload): Json<rest_types::FlightConfirm>,
     _headers: HeaderMap,
 ) -> Result<(), (StatusCode, String)> {
-    if !is_uuid(&payload.fp_id) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Invalid flight plan UUID.".to_string(),
-        ));
-    }
+    // if !is_uuid(&payload.fp_id) {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         "Invalid flight plan UUID.".to_string(),
+    //     ));
+    // }
 
     let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
 
@@ -314,13 +320,17 @@ pub async fn confirm_flight(
             if ret.confirmed {
                 Ok(())
             } else {
+                println!("Could not confirm flight!!!!!!!");
                 Err((
                     StatusCode::CONFLICT,
                     "Could not confirm flight.".to_string(),
                 ))
             }
         }
-        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+        Err(e) => {
+            println!("CONFLICT confirm flight: {:?}", e);
+            Err((StatusCode::CONFLICT, e.to_string()))
+        }
     }
 }
 
@@ -345,12 +355,12 @@ pub async fn cancel_flight(
     Json(payload): Json<rest_types::FlightCancel>,
     _headers: HeaderMap,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    if !is_uuid(&payload.fp_id) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Invalid flight plan UUID.".to_string(),
-        ));
-    }
+    // if !is_uuid(&payload.fp_id) {
+    //     return Err((
+    //         StatusCode::BAD_REQUEST,
+    //         "Invalid flight plan UUID.".to_string(),
+    //     ));
+    // }
 
     let request = tonic::Request::new(grpc_clients::Id { id: payload.fp_id });
 
