@@ -1,3 +1,9 @@
+## [Release 0.3.3-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.3-develop.0)
+
+### 🐛 Fixes
+
+-  **cargo:** add vendored-openssl feature ([`fe73f66`](https://github.com/Arrow-air/svc-cargo/commit/fe73f66eaf69d68e58bd29dc6e0dbadab1466695))
+
 ## [Release 0.3.2-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.2-develop.0)
 
 ### 🐛 Fixes
