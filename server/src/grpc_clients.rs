@@ -27,7 +27,7 @@ pub struct GrpcClient<T> {
     address: String,
 }
 
-fn get_grpc_endpoint(env_port: &str) -> String {
+fn get_grpc_endpoint(env_host: &str, env_port: &str) -> String {
     let port = match std::env::var(env_port) {
         Ok(s) => s,
         Err(_) => {
@@ -35,9 +35,15 @@ fn get_grpc_endpoint(env_port: &str) -> String {
             "".to_string()
         }
     };
+    let host = match std::env::var(env_host) {
+        Ok(s) => s,
+        Err(_) => {
+            println!("Unable to get environment variable {}", { env_host });
+            "".to_string()
+        }
+    };
 
-    let url: String = "[::]".to_string();
-    format!("http://{url}:{port}")
+    format!("http://{host}:{port}")
 }
 
 impl<T> GrpcClient<T> {
@@ -47,11 +53,11 @@ impl<T> GrpcClient<T> {
         *client = None;
     }
 
-    pub fn new(port_env: &str) -> Self {
+    pub fn new(env_host: &str, env_port: &str) -> Self {
         let opt: Option<T> = None;
         GrpcClient {
             inner: Arc::new(Mutex::new(opt)),
-            address: get_grpc_endpoint(port_env),
+            address: get_grpc_endpoint(env_host, env_port),
         }
     }
 }
@@ -64,6 +70,10 @@ impl GrpcClient<VertiportRpcClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
         if client.is_none() {
+            println!(
+                "Setting up connection to svc-storage vertiport on {}",
+                self.address.clone()
+            );
             let client_option = match VertiportRpcClient::connect(self.address.clone()).await {
                 Ok(s) => Some(s),
                 Err(e) => {
@@ -87,6 +97,10 @@ impl GrpcClient<PricingClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
         if client.is_none() {
+            println!(
+                "Setting up connection to svc-pricing on {}",
+                self.address.clone()
+            );
             let client_option = match PricingClient::connect(self.address.clone()).await {
                 Ok(s) => Some(s),
                 Err(e) => {
@@ -110,6 +124,10 @@ impl GrpcClient<SchedulerRpcClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
         if client.is_none() {
+            println!(
+                "Setting up connection to svc-scheduler on {}",
+                self.address.clone()
+            );
             let client_option =
                 match SchedulerRpcClient::<Channel>::connect(self.address.clone()).await {
                     Ok(s) => Some(s),
@@ -132,9 +150,18 @@ impl GrpcClient<SchedulerRpcClient<Channel>> {
 impl GrpcClients {
     pub fn default() -> Self {
         GrpcClients {
-            scheduler: GrpcClient::<SchedulerRpcClient<Channel>>::new("SCHEDULER_PORT_GRPC"),
-            storage: GrpcClient::<VertiportRpcClient<Channel>>::new("STORAGE_PORT_GRPC"),
-            pricing: GrpcClient::<PricingClient<Channel>>::new("PRICING_PORT_GRPC"),
+            scheduler: GrpcClient::<SchedulerRpcClient<Channel>>::new(
+                "SCHEDULER_HOST_GRPC",
+                "SCHEDULER_PORT_GRPC",
+            ),
+            storage: GrpcClient::<VertiportRpcClient<Channel>>::new(
+                "STORAGE_HOST_GRPC",
+                "STORAGE_PORT_GRPC",
+            ),
+            pricing: GrpcClient::<PricingClient<Channel>>::new(
+                "PRICING_HOST_GRPC",
+                "PRICING_PORT_GRPC",
+            ),
         }
     }
 }
