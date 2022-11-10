@@ -1,3 +1,18 @@
+## [Release 0.3.2-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.2-develop.0)
+
+### 🐛 Fixes
+
+-  **grpc:** clients ([`76e7e6a`](https://github.com/Arrow-air/svc-cargo/commit/76e7e6a5f31be069c63035a249afe5b69153ae20))
+
+### 🛠 Maintenance
+
+-  **ci:** update changelog ([`6e74926`](https://github.com/Arrow-air/svc-cargo/commit/6e74926d2f9219022fb7b2f311dd72e9a7549ef6))
+-  **ci:** update package version ([`27a68de`](https://github.com/Arrow-air/svc-cargo/commit/27a68ded5ee75aaf8207f42d96c9e1e4e3b06956))
+-  **ci:** update package version<br/><br/>[skip ci] ([`19fd789`](https://github.com/Arrow-air/svc-cargo/commit/19fd789baf0677f0ccccbb73a5e43a1b2b3ebea0))
+-  **ci:** .make/rust.mk - provisioned by terraform ([`70d28cc`](https://github.com/Arrow-air/svc-cargo/commit/70d28cc155fcd2f9f3842849b2c3ec8db9829514))
+-  **ci:** dockerfile - provisioned by terraform ([`ec56bf7`](https://github.com/Arrow-air/svc-cargo/commit/ec56bf7bb4bbfa7dcf022003abb2a26228589451))
+-  **ci:** .github/workflows/release.yml - provisioned by terraform ([`f49923f`](https://github.com/Arrow-air/svc-cargo/commit/f49923f8ebeffc03e21523effc117332dc6bbec5))
+
 ## [Release 0.3.1-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.1-develop.0)
 
 ### 🐛 Fixes
