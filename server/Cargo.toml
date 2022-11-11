@@ -7,26 +7,26 @@ edition = "2021"            # Allowed values are 2015, 2018, 2021
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum                    = "0.5.15"
-cargo-husky             = "1"
-chrono                  = { version = "0.4.22", features = ["serde"] }
-futures                 = "0.3"
-hyper                   = "0.14.20"
-prost                   = "0.11.0"
-prost-build             = "0.11.1"
-prost-types             = "0.11.1"
-serde                   = "1.0.144"
-serde_json              = "1.0.85"
-svc-pricing-client      = { git = "https://github.com/Arrow-air/svc-pricing" }
-svc-scheduler-client    = { git = "https://github.com/Arrow-air/svc-scheduler" }
-svc-storage-client-grpc = { git = "https://github.com/Arrow-air/svc-storage" }
-tokio                   = { version = "1.20.1", features = ["full"] }
-tokio-util              = "0.7.3"
-tonic                   = "0.8.2"
-tonic-health            = "0.7.1"
-utoipa                  = { version = "2.1.0", features = ["axum_extras"] }
-utoipa-swagger-ui       = { version = "2.0.1", features = ["axum"] }
-uuid                    = { version = "1.2.1", features = ["v4"] }
+axum                      = "0.5.15"
+cargo-husky               = "1"
+chrono                    = { version = "0.4.22", features = ["serde"] }
+futures                   = "0.3"
+hyper                     = "0.14.20"
+prost                     = "0.11.0"
+prost-build               = "0.11.1"
+prost-types               = "0.11.1"
+serde                     = "1.0.144"
+serde_json                = "1.0.85"
+svc-pricing-client-grpc   = { git = "https://github.com/Arrow-air/svc-pricing" }
+svc-scheduler-client-grpc = { git = "https://github.com/Arrow-air/svc-scheduler" }
+svc-storage-client-grpc   = { git = "https://github.com/Arrow-air/svc-storage" }
+tokio                     = { version = "1.20.1", features = ["full"] }
+tokio-util                = "0.7.3"
+tonic                     = "0.8.2"
+tonic-health              = "0.7.1"
+utoipa                    = { version = "2.1.0", features = ["axum_extras"] }
+utoipa-swagger-ui         = { version = "2.0.1", features = ["axum"] }
+uuid                      = { version = "1.2.1", features = ["v4"] }
 
 [build-dependencies]
 tonic-build = "0.8"
