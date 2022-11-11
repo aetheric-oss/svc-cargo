@@ -185,6 +185,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono-tz"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a87b30366b6766751277791b473b674f3bf7fb75696841c784a3eb7e7fbf44ee"
+dependencies = [
+ "chrono",
+ "chrono-tz-build",
+ "phf",
+]
+
+[[package]]
+name = "chrono-tz-build"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9998fb9f7e9b2111641485bf8beb32f92945f97f92a3d061f744cfef335f751"
+dependencies = [
+ "parse-zoneinfo",
+ "phf",
+ "phf_codegen",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -732,6 +754,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse-zoneinfo"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c705f256449c60da65e11ff6626e0c16a0a0b96aaa348de61376b249bc340f41"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -745,6 +776,44 @@ checksum = "e6d5014253a1331579ce62aa67443b4a658c5e7dd03d4bc6d302b94474888143"
 dependencies = [
  "fixedbitset",
  "indexmap",
+]
+
+[[package]]
+name = "phf"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "928c6535de93548188ef63bb7c4036bd415cd8f36ad25af44b9789b2ee72a48c"
+dependencies = [
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_codegen"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a56ac890c5e3ca598bbdeaa99964edb5b0258a583a9eb6ef4e89fc85d9224770"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+]
+
+[[package]]
+name = "phf_generator"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1181c94580fa345f50f19d738aaa39c0ed30a600d95cb2d3e23f94266f14fbf"
+dependencies = [
+ "phf_shared",
+ "rand",
+]
+
+[[package]]
+name = "phf_shared"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1fb5f6f826b772a8d4c0394209441e7d37cbbb967ae9c7e0e8134365c9ee676"
+dependencies = [
+ "siphasher",
 ]
 
 [[package]]
@@ -1095,6 +1164,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "siphasher"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
+
+[[package]]
 name = "slab"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1121,7 +1196,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo"
-version = "0.3.0-develop.0"
+version = "0.3.1-develop.0"
 dependencies = [
  "axum",
  "cargo-husky",
@@ -1133,8 +1208,8 @@ dependencies = [
  "prost-types",
  "serde",
  "serde_json",
- "svc-pricing-client",
- "svc-scheduler-client",
+ "svc-pricing-client-grpc",
+ "svc-scheduler-client-grpc",
  "svc-storage-client-grpc",
  "tokio",
  "tokio-util",
@@ -1148,7 +1223,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.3.0-develop.0"
+version = "0.3.1-develop.0"
 dependencies = [
  "prost",
  "prost-types",
@@ -1169,9 +1244,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "svc-pricing-client"
-version = "0.1.0"
-source = "git+https://github.com/Arrow-air/svc-pricing#a671894ad0554579d87cb9e2c2d3a15914dee3d5"
+name = "svc-pricing-client-grpc"
+version = "0.2.1-develop.0"
+source = "git+https://github.com/Arrow-air/svc-pricing#a232c718e5deee5d056251ef6a943e7aa50059d2"
 dependencies = [
  "prost",
  "prost-types",
@@ -1179,10 +1254,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "svc-scheduler-client"
-version = "0.1.0"
-source = "git+https://github.com/Arrow-air/svc-scheduler#43611676a4a4b372daf385492335719beda2031a"
+name = "svc-scheduler-client-grpc"
+version = "0.2.4-develop.0"
+source = "git+https://github.com/Arrow-air/svc-scheduler#97e3ffbbea42d19ff4ef2ccd20f085e29b665b67"
 dependencies = [
+ "chrono",
+ "chrono-tz",
  "prost",
  "prost-types",
  "tonic",
