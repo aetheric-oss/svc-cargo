@@ -148,45 +148,13 @@ pub async fn query_vertiports(
     }
 }
 
-/// Requests the cost of an itinerary from svc-pricing
+/// Parses the incoming flight plans for information the customer wants
 ///
 /// # Arguments
-/// * _flight - The flight plan to obtain the cost of
-/// * client  - The active client for the svc-pricing server
+/// * plan - The flight plan to parse for customer-relevant data
 ///
 /// # Returns
-/// A tuple of price and currency type
-async fn customer_cost(
-    flight: &rest_types::FlightOption,
-    client: &mut PricingClient<Channel>,
-) -> (Option<f32>, Option<String>) {
-    let pricing_query = grpc_clients::PricingRequest {
-        service_type: grpc_clients::ServiceType::Cargo as i32,
-        distance_km: flight.distance_km,
-    };
-
-    // Make request, process response
-    let request = tonic::Request::new(pricing_query);
-    let response = client.get_pricing(request).await;
-    match response {
-        Ok(r) => {
-            (Some(r.into_inner().price), Some("usd".to_string())) // TODO r.into_inner().currency;
-        }
-        _ => {
-            println!("Error response from pricing service!");
-            (None, None)
-        }
-    }
-}
-
-/// Scrapes the incoming flight plans for information the customer wants
-///
-/// # Arguments
-/// * _flight - The flight plan to obtain the cost of
-/// * client  - The active client for the svc-pricing server
-///
-/// # Returns
-/// A tuple of price and currency type
+/// Some FlightOption object or None if the flight plan could not be parsed.
 fn parse_flight(plan: &grpc_clients::QueryFlightPlan) -> Option<rest_types::FlightOption> {
     let time_depart: SystemTime;
     let time_arrive: SystemTime;
@@ -221,8 +189,8 @@ fn parse_flight(plan: &grpc_clients::QueryFlightPlan) -> Option<rest_types::Flig
         vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
         timestamp_depart: time_depart,
         timestamp_arrive: time_arrive,
-        distance_km: (plan.estimated_distance as f32) / 1000.0,
-        customer_cost: None,
+        distance_m: plan.estimated_distance as f32,
+        base_pricing: None,
         currency_type: None,
     })
 }
@@ -309,10 +277,11 @@ pub async fn query_flight(
     }
 
     // Get Clients
-    let client_option = grpc_clients.scheduler.get_client().await;
-    let mut client: SchedulerRpcClient<Channel>;
-    match client_option {
-        Some(c) => client = c,
+    let mut scheduler_client: SchedulerRpcClient<Channel>;
+    let mut pricing_client: PricingClient<Channel>;
+
+    match grpc_clients.scheduler.get_client().await {
+        Some(c) => scheduler_client = c,
         None => {
             return Err((
                 StatusCode::SERVICE_UNAVAILABLE,
@@ -321,9 +290,19 @@ pub async fn query_flight(
         }
     };
 
+    match grpc_clients.pricing.get_client().await {
+        Some(c) => pricing_client = c,
+        None => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                "pricing service unavailable.".to_string(),
+            ));
+        }
+    };
+
     // Make request, process response
     let request = tonic::Request::new(flight_query);
-    let response = client.query_flight(request).await;
+    let response = scheduler_client.query_flight(request).await;
     let mut flights: Vec<rest_types::FlightOption>;
 
     match response {
@@ -336,27 +315,32 @@ pub async fn query_flight(
                 .collect();
         }
         Err(e) => {
-            return Err((StatusCode::CONFLICT, e.to_string()));
+            grpc_clients.scheduler.invalidate().await;
+            return Err((StatusCode::CONFLICT, format!("scheduler service: {e}")));
         }
     };
 
     // StatusUpdate message to customer?
     // e.g. Got your flights! Calculating prices...
-    let pricing_option = grpc_clients.pricing.get_client().await;
-    if let Some(mut pricing_client) = pricing_option {
-        for mut x in &mut flights {
-            let (cost, currency) = customer_cost(x, &mut pricing_client).await;
-            x.customer_cost = cost;
-            x.currency_type = currency;
-        }
-    } else {
-        // Allow flights to go back to customer without pricing?
-        println!("pricing service unavailable!")
+    for mut fp in &mut flights {
+        let pricing_query = grpc_clients::PricingRequest {
+            service_type: grpc_clients::ServiceType::Cargo as i32,
+            distance_km: fp.distance_m / 1000.0,
+        };
 
-        // return Err((
-        //     StatusCode::SERVICE_UNAVAILABLE,
-        //     "pricing service unavailable.".to_string(),
-        // ));
+        // Make request, process response
+        let request = tonic::Request::new(pricing_query);
+        let response = pricing_client.get_pricing(request).await;
+        match response {
+            Ok(r) => {
+                fp.base_pricing = Some(r.into_inner().price);
+                fp.currency_type = Some("usd".to_string());
+            }
+            Err(e) => {
+                grpc_clients.pricing.invalidate().await;
+                return Err((StatusCode::CONFLICT, format!("pricing service: {e}")));
+            }
+        }
     }
 
     Ok(Json(flights))
