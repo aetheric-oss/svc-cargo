@@ -1,3 +1,14 @@
+## [Release 0.4.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.4.0-develop.0)
+
+### ✨ Features
+
+- add pricing connections ([`c095341`](https://github.com/Arrow-air/svc-cargo/commit/c0953410621c769a485dafe6f0edd6871af29250))
+
+### 🐛 Fixes
+
+- use base_pricing instead of customer_cost ([`5bfa8c5`](https://github.com/Arrow-air/svc-cargo/commit/5bfa8c58e96525ccf1913bdf1e3ff75f85a5c8e8))
+- error out if pricing client not available ([`2fc70b1`](https://github.com/Arrow-air/svc-cargo/commit/2fc70b199aff09625dc964bc40b98fa5d2c9a31f))
+
 ## [Release 0.3.3-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.3.3-develop.0)
 
 ### 🐛 Fixes
