@@ -1,14 +1,18 @@
-use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
-use svc_scheduler_client::grpc::scheduler_rpc_client::SchedulerRpcClient;
-use svc_storage_client_grpc::client::vertiport_rpc_client::VertiportRpcClient;
-use tonic::transport::Channel;
+pub use svc_pricing_client::pricing_grpc::{
+    pricing_client::PricingClient, pricing_request::ServiceType, PricingRequest,
+};
+
+pub use svc_scheduler_client_grpc::grpc::{
+    scheduler_rpc_client::SchedulerRpcClient, Id, QueryFlightPlan, QueryFlightRequest,
+};
+
+pub use svc_storage_client_grpc::client::{
+    vertiport_rpc_client::VertiportRpcClient, SearchFilter, VertiportData,
+};
 
 use futures::lock::Mutex;
 use std::sync::Arc;
-
-pub use svc_scheduler_client::grpc::{Id, QueryFlightRequest};
-pub use svc_storage_client_grpc::client::SearchFilter;
-pub use svc_storage_client_grpc::client::VertiportData;
+pub use tonic::transport::Channel;
 
 #[derive(Clone, Debug)]
 pub struct GrpcClients {

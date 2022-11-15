@@ -13,10 +13,11 @@ pub mod cargo_grpc {
 
 /// Client connections to other GRPC Servers
 mod grpc_clients;
+use grpc_clients::GrpcClients;
+use grpc_clients::{Channel, PricingClient, SchedulerRpcClient};
 
 use axum::{extract::Extension, handler::Handler, response::IntoResponse, routing, Json, Router};
 use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
-use grpc_clients::GrpcClients;
 use hyper::{HeaderMap, StatusCode};
 use std::time::SystemTime;
 use utoipa::OpenApi;
@@ -147,6 +148,53 @@ pub async fn query_vertiports(
     }
 }
 
+/// Parses the incoming flight plans for information the customer wants
+///
+/// # Arguments
+/// * plan - The flight plan to parse for customer-relevant data
+///
+/// # Returns
+/// Some FlightOption object or None if the flight plan could not be parsed.
+fn parse_flight(plan: &grpc_clients::QueryFlightPlan) -> Option<rest_types::FlightOption> {
+    let time_depart: SystemTime;
+    let time_arrive: SystemTime;
+
+    if let Some(prost_time) = plan.estimated_departure.clone() {
+        if let Ok(sys_time) = SystemTime::try_from(prost_time) {
+            time_depart = sys_time;
+        } else {
+            println!("Could not convert departure time to usable format! Discarding.");
+            return None;
+        };
+    } else {
+        println!("No departure time provided by flight plan! Discarding.");
+        return None;
+    };
+
+    if let Some(prost_time) = plan.estimated_arrival.clone() {
+        if let Ok(sys_time) = SystemTime::try_from(prost_time) {
+            time_arrive = sys_time;
+        } else {
+            println!("Could not convert departure time to usable format! Discarding.");
+            return None;
+        };
+    } else {
+        println!("No arrival time provided by flight plan! Discarding.");
+        return None;
+    };
+
+    Some(rest_types::FlightOption {
+        fp_id: plan.id.clone(),
+        vertiport_depart_id: plan.vertiport_depart_id.to_string(),
+        vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
+        timestamp_depart: time_depart,
+        timestamp_arrive: time_arrive,
+        distance_m: plan.estimated_distance as f32,
+        base_pricing: None,
+        currency_type: None,
+    })
+}
+
 /// Search FlightOptions by query params.
 ///
 /// Search `FlightOption`s by query params and return matching `FlightOption`s.
@@ -198,14 +246,8 @@ pub async fn query_flight(
 
     let current_time = SystemTime::now();
 
-    let by_arrival: bool =
-        payload.timestamp_arrive_min.is_some() && payload.timestamp_arrive_max.is_some();
-    let by_departure: bool =
-        payload.timestamp_depart_min.is_some() && payload.timestamp_depart_max.is_some();
-
     // Time windows are properly specified
-    if by_arrival {
-        let timestamp = payload.timestamp_arrive_max.unwrap();
+    if let Some(timestamp) = payload.timestamp_arrive_max {
         if timestamp <= current_time {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -214,9 +256,9 @@ pub async fn query_flight(
         }
 
         flight_query.arrival_time = Some(timestamp.into());
-    } else if by_departure {
-        let timestamp = payload.timestamp_depart_max.unwrap();
+    }
 
+    if let Some(timestamp) = payload.timestamp_depart_min {
         if timestamp <= current_time {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -225,45 +267,83 @@ pub async fn query_flight(
         }
 
         flight_query.departure_time = Some(timestamp.into());
-    } else {
+    }
+
+    if flight_query.departure_time.is_none() && flight_query.arrival_time.is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
             "Invalid time window provided.".to_string(),
         ));
     }
 
-    let request = tonic::Request::new(flight_query);
-    // Get Client
-    let client_option = grpc_clients.scheduler.get_client().await;
-    if client_option.is_none() {
-        return Err((
-            StatusCode::SERVICE_UNAVAILABLE,
-            "scheduler service unavailable.".to_string(),
-        ));
-    }
-    let mut client = client_option.unwrap();
+    // Get Clients
+    let mut scheduler_client: SchedulerRpcClient<Channel>;
+    let mut pricing_client: PricingClient<Channel>;
+
+    match grpc_clients.scheduler.get_client().await {
+        Some(c) => scheduler_client = c,
+        None => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                "scheduler service unavailable.".to_string(),
+            ));
+        }
+    };
+
+    match grpc_clients.pricing.get_client().await {
+        Some(c) => pricing_client = c,
+        None => {
+            return Err((
+                StatusCode::SERVICE_UNAVAILABLE,
+                "pricing service unavailable.".to_string(),
+            ));
+        }
+    };
 
     // Make request, process response
-    let response = client.query_flight(request).await;
+    let request = tonic::Request::new(flight_query);
+    let response = scheduler_client.query_flight(request).await;
+    let mut flights: Vec<rest_types::FlightOption>;
+
     match response {
         Ok(r) => {
-            let ret = r
+            flights = r
                 .into_inner()
                 .flights
                 .into_iter()
-                .map(|x| rest_types::FlightOption {
-                    fp_id: x.id,
-                    vertiport_depart_id: x.vertiport_id_departure.to_string(),
-                    vertiport_arrive_id: x.vertiport_id_destination.to_string(),
-                    timestamp_depart: SystemTime::try_from(x.estimated_departure.unwrap()).unwrap(),
-                    timestamp_arrive: SystemTime::try_from(x.estimated_arrival.unwrap()).unwrap(),
-                })
+                .filter_map(|x| parse_flight(&x))
                 .collect();
-
-            Ok(Json(ret))
         }
-        Err(e) => Err((StatusCode::CONFLICT, e.to_string())),
+        Err(e) => {
+            grpc_clients.scheduler.invalidate().await;
+            return Err((StatusCode::CONFLICT, format!("scheduler service: {e}")));
+        }
+    };
+
+    // StatusUpdate message to customer?
+    // e.g. Got your flights! Calculating prices...
+    for mut fp in &mut flights {
+        let pricing_query = grpc_clients::PricingRequest {
+            service_type: grpc_clients::ServiceType::Cargo as i32,
+            distance_km: fp.distance_m / 1000.0,
+        };
+
+        // Make request, process response
+        let request = tonic::Request::new(pricing_query);
+        let response = pricing_client.get_pricing(request).await;
+        match response {
+            Ok(r) => {
+                fp.base_pricing = Some(r.into_inner().price);
+                fp.currency_type = Some("usd".to_string());
+            }
+            Err(e) => {
+                grpc_clients.pricing.invalidate().await;
+                return Err((StatusCode::CONFLICT, format!("pricing service: {e}")));
+            }
+        }
     }
+
+    Ok(Json(flights))
 }
 
 /// Confirm a Flight
@@ -475,11 +555,59 @@ async fn main() -> Result<(), tonic::transport::Error> {
 
     // Wait for other GRPC Servers
     let grpc_clients = grpc_clients::GrpcClients::default();
-    // grpc_clients.connect_all().await;
 
     // Start REST API
     rest_server(grpc_clients).await;
 
     println!("Server shutdown.");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn ut_parse_flight() {
+        let fp = grpc_clients::QueryFlightPlan {
+            id: "".to_string(),
+            pilot_id: "".to_string(),
+            vehicle_id: "".to_string(),
+            cargo: [123].to_vec(),
+            weather_conditions: "Sunny, no wind :)".to_string(),
+            vertiport_depart_id: "".to_string(),
+            pad_depart_id: "".to_string(),
+            vertiport_arrive_id: "".to_string(),
+            pad_arrive_id: "".to_string(),
+            estimated_departure: Some(SystemTime::now().into()),
+            estimated_arrival: Some(SystemTime::now().into()),
+            actual_departure: None,
+            actual_arrival: None,
+            flight_release_approval: None,
+            flight_plan_submitted: None,
+            flight_status: 0,
+            flight_priority: 0,
+            estimated_distance: 1000,
+        };
+        let ret = parse_flight(&fp);
+        assert!(ret.is_some());
+        let opt = ret.unwrap();
+        assert_eq!(fp.id, opt.fp_id);
+        assert_eq!(fp.vertiport_depart_id, opt.vertiport_depart_id);
+        assert_eq!(fp.vertiport_arrive_id, opt.vertiport_arrive_id);
+
+        // Bad time arguments
+        {
+            let mut fp2 = fp.clone();
+            fp2.estimated_departure = None;
+            assert!(parse_flight(&fp2).is_none());
+        }
+
+        {
+            let mut fp2 = fp.clone();
+            fp2.estimated_arrival = None;
+            assert!(parse_flight(&fp2).is_none());
+        }
+    }
 }

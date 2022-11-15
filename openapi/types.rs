@@ -40,7 +40,7 @@ pub struct FlightQuery {
     pub timestamp_arrive_max: Option<SystemTime>,
 
     /// The estimated weight of cargo
-    pub cargo_weight_kg: f32,
+    pub cargo_weight_kg: f32
 }
 
 /// Request Body Information to Cancel a Flight
@@ -82,7 +82,16 @@ pub struct FlightOption {
     pub timestamp_depart: SystemTime,
 
     /// Estimated arrival timestamp
-    pub timestamp_arrive: SystemTime
+    pub timestamp_arrive: SystemTime,
+
+    /// The estimated trip distance in meters
+    pub distance_m: f32,
+    
+    /// The currency type, e.g. USD, EUR
+    pub currency_type: Option<String>,
+
+    /// The cost of the trip for the customer
+    pub base_pricing: Option<f32>
 }
 
 
