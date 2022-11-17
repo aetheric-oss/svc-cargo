@@ -4,18 +4,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use std::time::SystemTime;
 
-/// API Endpoint to Cancel a Flight
-pub const ENDPOINT_CANCEL: &str = "/cargo/cancel";
-
-/// API Endpoint to Confirm a Flight
-pub const ENDPOINT_CONFIRM: &str = "/cargo/confirm";
-
-/// API Endpoint to Query for Available Flights
-pub const ENDPOINT_QUERY: &str = "/cargo/query";
-
-/// API Endpoint to Get Vertiports for a Region
-pub const ENDPOINT_VERTIPORTS: &str = "/cargo/vertiports";
-
 /// Request Body Information for Flight Query
 #[allow(dead_code)]
 #[derive(Debug, Clone, IntoParams, ToSchema)]

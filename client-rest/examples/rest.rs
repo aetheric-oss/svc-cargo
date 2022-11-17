@@ -11,6 +11,8 @@ fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (
         Ok(r) => {
             let tmp = r.status() == expected_code;
             ok &= tmp;
+            println!("{:?}", r.body());
+
             r.status().to_string()
         }
         Err(e) => {
@@ -42,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             longitude: 117.1544,
         };
         let data_str = serde_json::to_string(&data).unwrap();
-        let uri = format!("{}{}", url, ENDPOINT_VERTIPORTS);
+        let uri = format!("{}/cargo/vertiports", url);
         let req = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
@@ -60,10 +62,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // PUT /cargo/confirm
     {
         let data = FlightConfirm {
-            fp_id: "TEST".to_string(),
+            // Arbitrary UUID
+            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
         let data_str = serde_json::to_string(&data).unwrap();
-        let uri = format!("{}{}", url, ENDPOINT_CONFIRM);
+        let uri = format!("{}/cargo/confirm", url);
         let req = Request::builder()
             .method(Method::PUT)
             .uri(uri.clone())
@@ -81,10 +84,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // DELETE /cargo/cancel
     {
         let data = FlightCancel {
-            fp_id: "TEST".to_string(),
+            // arbitrary UUID
+            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
         let data_str = serde_json::to_string(&data).unwrap();
-        let uri = format!("{}{}", url, ENDPOINT_CANCEL);
+        let uri = format!("{}/cargo/cancel", url);
         let req = Request::builder()
             .method(Method::DELETE)
             .uri(uri.clone())
@@ -101,10 +105,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // POST /cargo/query
     {
-        let depart_timestamp_min = SystemTime::now();
+        let depart_timestamp_min = SystemTime::now() + Duration::from_secs(60);
         let data = FlightQuery {
-            vertiport_depart_id: "vertiport_1".to_string(),
-            vertiport_arrive_id: "vertiport_2".to_string(),
+            // Arbitrary UUIDs
+            vertiport_depart_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
+            vertiport_arrive_id: "59e51ad1-d57d-4d2c-bc2d-e2387367d17f".to_string(),
             timestamp_depart_min: Some(depart_timestamp_min),
             timestamp_depart_max: Some(depart_timestamp_min + Duration::from_secs(360)),
             timestamp_arrive_min: None,
@@ -112,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             cargo_weight_kg: 1.0,
         };
         let data_str = serde_json::to_string(&data).unwrap();
-        let uri = format!("{}{}", url, ENDPOINT_QUERY);
+        let uri = format!("{}/cargo/query", url);
         let req = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())

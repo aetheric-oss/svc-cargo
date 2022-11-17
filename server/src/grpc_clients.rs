@@ -69,6 +69,7 @@ impl GrpcClient<VertiportRpcClient<Channel>> {
     pub async fn get_client(&mut self) -> Option<VertiportRpcClient<Channel>> {
         let arc = Arc::clone(&self.inner);
         let mut client = arc.lock().await;
+
         if client.is_none() {
             println!(
                 "Setting up connection to svc-storage vertiport on {}",
