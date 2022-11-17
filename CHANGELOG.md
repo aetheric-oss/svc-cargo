@@ -1,3 +1,13 @@
+## [Release 0.5.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.5.0-develop.0)
+
+### ✨ Features
+
+- add log statements, rest code to rest_api.rs (#15) ([`95a3d43`](https://github.com/Arrow-air/svc-cargo/commit/95a3d43d12ee3981d63d04c3adff20bfa37380e6))
+
+### 🛠 Maintenance
+
+-  **ci:** .commitlintrc.yml - provisioned by terraform ([`f3673d3`](https://github.com/Arrow-air/svc-cargo/commit/f3673d377aa624720d319d6ac914ad24b670577d))
+
 ## [Release 0.4.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.4.0-develop.0)
 
 ### ✨ Features
