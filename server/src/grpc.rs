@@ -3,14 +3,13 @@
 /// No arguments
 #[derive(Eq, Copy)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct QueryIsReady {
-}
+pub struct QueryIsReady {}
 /// I'm Ready
 #[derive(Eq, Copy)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReadyResponse {
     /// True if ready
-    #[prost(bool, tag="1")]
+    #[prost(bool, tag = "1")]
     pub ready: bool,
 }
 /// Generated server implementations.

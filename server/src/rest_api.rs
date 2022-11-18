@@ -96,8 +96,9 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
     path = "/cargo/vertiports",
     request_body = VertiportsQuery,
     responses(
-        (status = 202, description = "List all cargo-accessible vertiports successfully", body = [Vertiport]),
-        (status = 404, description = "Unable to get vertiports.")
+        (status = 200, description = "List all cargo-accessible vertiports successfully", body = [Vertiport]),
+        (status = 409, description = "Unable to get vertiports."),
+        (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
 pub async fn query_vertiports(
@@ -161,7 +162,10 @@ pub async fn query_vertiports(
     path = "/cargo/query",
     request_body = FlightQuery,
     responses(
-        (status = 202, description = "List possible flights", body = [FlightOption])
+        (status = 200, description = "List available flight plans", body = [FlightOption]),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 409, description = "svc-scheduler or svc-pricing returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
 pub async fn query_flight(
@@ -315,9 +319,10 @@ pub async fn query_flight(
     path = "/cargo/confirm",
     request_body = FlightConfirm,
     responses(
-        (status = 201, description = "Flight Confirmed", body = String),
-        (status = 409, description = "Flight Confirmation Failed", body = ConfirmError),
-        (status = 503, description = "Microservice dependencies unavailable", body = String)
+        (status = 200, description = "Flight Confirmed", body = String),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 409, description = "svc-scheduler returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
 pub async fn confirm_flight(
@@ -373,8 +378,9 @@ pub async fn confirm_flight(
     path = "/cargo/cancel",
     responses(
         (status = 200, description = "Flight cancelled successfully"),
-        (status = 409, description = "FlightOption not found"),
-        (status = 503, description = "Microservice dependencies unavailable", body = String)
+        (status = 400, description = "Request body is invalid format"),
+        (status = 409, description = "svc-scheduler returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
     ),
     request_body = FlightCancel
 )]
