@@ -210,7 +210,8 @@ pub async fn query_flight(
     // Time windows are properly specified
     if let Some(timestamp) = payload.timestamp_arrive_max {
         if timestamp <= current_time {
-            let error_msg = "max arrival time is in the past.".to_string();
+            info!("(query flight) current time: {:?}", current_time);
+            let error_msg = format!("max arrival time is in the past: {:?}", timestamp);
             error!("(query_flight) {}", &error_msg);
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
@@ -220,7 +221,8 @@ pub async fn query_flight(
 
     if let Some(timestamp) = payload.timestamp_depart_max {
         if timestamp <= current_time {
-            let error_msg = "max depart time is in the past.".to_string();
+            info!("(query flight) current time: {:?}", current_time);
+            let error_msg = format!("max depart time is in the past: {:?}", timestamp);
             error!("(query_flight) {}", &error_msg);
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
@@ -273,7 +275,7 @@ pub async fn query_flight(
             info!("(query_flight) found {} flight options.", flights.len());
         }
         Err(e) => {
-            let error_msg = format!("svc-pricing error: {e}");
+            let error_msg = format!("svc-scheduler error: {e}");
             error!("(query_flight) {}", &error_msg);
             error!("(query_flight) invalidating svc-scheduler client.");
             grpc_clients.scheduler.invalidate().await;
