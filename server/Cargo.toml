@@ -36,3 +36,12 @@ uuid                      = { version = "1.2.1", features = ["v4"] }
 
 [build-dependencies]
 tonic-build = "0.8"
+
+[dependencies.log4rs]
+features = [
+  "background_rotation",
+  "rolling_file_appender",
+  "json_format",
+  "gzip",
+]
+version = "1.2"

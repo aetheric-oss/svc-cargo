@@ -8,11 +8,13 @@ mod cargo_grpc {
     include!("grpc.rs");
 }
 
+#[macro_use]
+mod loggers;
+
 use axum::{extract::Extension, handler::Handler, response::IntoResponse, routing, Router};
 use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
-use env_logger::Builder;
 use grpc_clients::GrpcClients;
-use log::{info, warn, LevelFilter};
+use log::{info, warn};
 use utoipa::OpenApi;
 
 ///////////////////////////////////////////////////////////////////////
@@ -163,8 +165,14 @@ pub async fn rest_server(grpc_clients: GrpcClients) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), tonic::transport::Error> {
-    Builder::new().filter_level(LevelFilter::Info).init();
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    {
+        let log_cfg: &str = "log4rs.yaml";
+        if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
+            println!("(logger) could not parse {}. {}", log_cfg, e);
+            panic!();
+        }
+    }
 
     // Start GRPC Server
     tokio::spawn(grpc_server());
