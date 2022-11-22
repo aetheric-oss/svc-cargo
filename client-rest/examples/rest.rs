@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap();
 
         let resp = client.request(req).await;
-        let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);
+        let (success, result_str) = evaluate(resp, StatusCode::OK);
         ok &= success;
 
         println!("{}: {}", uri, result_str);
@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap();
 
         let resp = client.request(req).await;
-        let (success, result_str) = evaluate(resp, StatusCode::CREATED);
+        let (success, result_str) = evaluate(resp, StatusCode::OK);
         ok &= success;
 
         println!("{}: {}", uri, result_str);
