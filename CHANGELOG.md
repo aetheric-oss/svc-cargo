@@ -1,3 +1,19 @@
+## [Release 0.6.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.6.0-develop.0)
+
+### ✨ Features
+
+- add SDD (#17) ([`83fe7e8`](https://github.com/Arrow-air/svc-cargo/commit/83fe7e894c8e97ea97b7bb31302741a02a402866))
+
+### 🛠 Maintenance
+
+-  **ci:** .make/docker.mk - provisioned by terraform ([`964fed9`](https://github.com/Arrow-air/svc-cargo/commit/964fed9237bcad18b44f1a62936f65f982a9944e))
+-  **ci:** .make/env.mk - provisioned by terraform ([`30c5527`](https://github.com/Arrow-air/svc-cargo/commit/30c552747b98d6aabbae892fa65d9e135c717dac))
+-  **ci:** makefile - provisioned by terraform ([`5311b1b`](https://github.com/Arrow-air/svc-cargo/commit/5311b1b6a1b9b6eb1d5fd2b3d10e3429a076fc74))
+-  **ci:** .env.base.tftpl - provisioned by terraform ([`89a1827`](https://github.com/Arrow-air/svc-cargo/commit/89a18274632c2f62b52d4ae31a93838921dae0ab))
+-  **ci:** .env.base - provisioned by terraform ([`8beba98`](https://github.com/Arrow-air/svc-cargo/commit/8beba980dfba1c3ebeac8dba68db75def7150251))
+-  **ci:** .make/env.mk - provisioned by terraform ([`80774f9`](https://github.com/Arrow-air/svc-cargo/commit/80774f946e2b433c7ca44f61b1e6de47aa32b063))
+-  **log:** switch from env_logger to log4rs (#20) ([`1377066`](https://github.com/Arrow-air/svc-cargo/commit/1377066426eeff3d67d4d628e7c5f82da5db2a33))
+
 ## [Release 0.5.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.5.0-develop.0)
 
 ### ✨ Features
