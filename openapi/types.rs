@@ -103,10 +103,10 @@ pub struct Vertiport {
     pub label: String,
 
     /// The latitude (float value) of the vertiport
-    pub latitude: f32,
+    pub latitude: f64,
 
     /// The longitude (float value) of the vertiport
-    pub longitude: f32,
+    pub longitude: f64,
 }
 
 // #[derive(Serialize, Deserialize, ToSchema, Clone)]
