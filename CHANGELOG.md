@@ -1,3 +1,11 @@
+## [Release 0.6.0-develop.1](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.6.0-develop.1)
+
+### 🛠 Maintenance
+
+-  **ci:** .gitignore - provisioned by terraform ([`4a038b4`](https://github.com/Arrow-air/svc-cargo/commit/4a038b4780bf9cdb21053abbcb1e377d25444efa))
+-  **ci:** .make/env.mk - provisioned by terraform ([`d0166f0`](https://github.com/Arrow-air/svc-cargo/commit/d0166f0023644c13f60f805813f598e4ca898ac8))
+-  **toml:** remove minor versions (#21) ([`59b0919`](https://github.com/Arrow-air/svc-cargo/commit/59b0919cff3e32161abdafeaf69c413a9c005e63))
+
 ## [Release 0.6.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.6.0-develop.0)
 
 ### ✨ Features
