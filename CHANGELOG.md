@@ -1,3 +1,9 @@
+## [Release 0.7.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.7.0-develop.0)
+
+### ✨ Features
+
+- add conops (#22) ([`00d7937`](https://github.com/Arrow-air/svc-cargo/commit/00d79379a1080b0d6e728de8a9f19cfa7974893d))
+
 ## [Release 0.6.0-develop.1](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.6.0-develop.1)
 
 ### 🛠 Maintenance
