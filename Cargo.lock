@@ -1477,7 +1477,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo"
-version = "0.6.0-develop.0"
+version = "0.6.0-develop.1"
 dependencies = [
  "axum",
  "cargo-husky",
@@ -1508,7 +1508,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.6.0-develop.0"
+version = "0.6.0-develop.1"
 dependencies = [
  "prost",
  "prost-types",
