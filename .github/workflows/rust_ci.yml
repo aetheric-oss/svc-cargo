@@ -46,3 +46,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: make rust-clippy
+
+  coverage:
+    name: Tarpaulin Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: '-- --test-threads 1'
+          out-type: Lcov
