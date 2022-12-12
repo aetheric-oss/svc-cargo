@@ -29,22 +29,12 @@ const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 /// Helpers
 ///////////////////////////////////////////////////////////////////////
 
-/// Verifies if a given string is UUID format
-/// # Arguments
-/// * s - string to check
-/// # Returns
-/// true if UUID format, false otherwise
+/// Returns true if a given string is UUID format
 fn is_uuid(s: &str) -> bool {
     uuid::Uuid::parse_str(s).is_ok()
 }
 
 /// Parses the incoming flight plans for information the customer wants
-///
-/// # Arguments
-/// * plan - The flight plan to parse for customer-relevant data
-///
-/// # Returns
-/// Some FlightOption object or None if the flight plan could not be parsed.
 fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
     let time_depart: SystemTime;
     let time_arrive: SystemTime;
@@ -97,7 +87,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
     request_body = VertiportsQuery,
     responses(
         (status = 200, description = "List all cargo-accessible vertiports successfully", body = [Vertiport]),
-        (status = 409, description = "Unable to get vertiports."),
+        (status = 500, description = "Unable to get vertiports."),
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
@@ -149,7 +139,7 @@ pub async fn query_vertiports(
         Err(e) => {
             let error_msg = format!("error response from svc-storage: {e}");
             req_error!("(query_vertiports) {}", &error_msg);
-            Err((StatusCode::CONFLICT, error_msg))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
 }
@@ -164,7 +154,7 @@ pub async fn query_vertiports(
     responses(
         (status = 200, description = "List available flight plans", body = [FlightOption]),
         (status = 400, description = "Request body is invalid format"),
-        (status = 409, description = "svc-scheduler or svc-pricing returned error"),
+        (status = 500, description = "svc-scheduler or svc-pricing returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
@@ -279,7 +269,7 @@ pub async fn query_flight(
             req_error!("(query_flight) {}", &error_msg);
             req_error!("(query_flight) invalidating svc-scheduler client.");
             grpc_clients.scheduler.invalidate().await;
-            return Err((StatusCode::CONFLICT, error_msg));
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
         }
     };
 
@@ -304,7 +294,7 @@ pub async fn query_flight(
                 req_error!("(query_flight) {}", &error_msg);
                 req_error!("(query_flight) invalidating svc-pricing client.");
                 grpc_clients.pricing.invalidate().await;
-                return Err((StatusCode::CONFLICT, error_msg));
+                return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
             }
         }
     }
@@ -323,7 +313,7 @@ pub async fn query_flight(
     responses(
         (status = 200, description = "Flight Confirmed", body = String),
         (status = 400, description = "Request body is invalid format"),
-        (status = 409, description = "svc-scheduler returned error"),
+        (status = 500, description = "svc-scheduler returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
@@ -361,13 +351,13 @@ pub async fn confirm_flight(
             } else {
                 let error_msg = "svc-scheduler confirm fail.".to_string();
                 req_error!("(confirm_flight) {}", &error_msg);
-                Err((StatusCode::CONFLICT, error_msg))
+                Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
             }
         }
         Err(e) => {
             let error_msg = format!("svc-scheduler error: {e}.");
             req_error!("(confirm_flight) {}", &error_msg);
-            Err((StatusCode::CONFLICT, error_msg))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
 }
@@ -381,7 +371,7 @@ pub async fn confirm_flight(
     responses(
         (status = 200, description = "Flight cancelled successfully"),
         (status = 400, description = "Request body is invalid format"),
-        (status = 409, description = "svc-scheduler returned error"),
+        (status = 500, description = "svc-scheduler returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     ),
     request_body = FlightCancel
@@ -419,13 +409,13 @@ pub async fn cancel_flight(
             } else {
                 let error_msg = format!("svc-scheduler cancel fail: {}", ret.reason);
                 req_error!("(cancel_flight) {}", &error_msg);
-                Err((StatusCode::CONFLICT, error_msg))
+                Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
             }
         }
         Err(e) => {
             let error_msg = format!("svc-scheduler request fail: {e}");
             req_error!("(cancel_flight) {}", &error_msg);
-            Err((StatusCode::CONFLICT, error_msg))
+            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
 }

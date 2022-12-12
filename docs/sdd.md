@@ -128,7 +128,7 @@ sequenceDiagram
     cargo-->>cargo: Connect to svc-storage
     cargo-->>storage: (GRPC REQ) get_vertiports
     storage-->>cargo: (GRPC REP) Error
-    cargo-->>client: (409 CONFLICT)
+    cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
 ### `query` Handler
@@ -206,7 +206,7 @@ sequenceDiagram
     cargo-->>cargo: Connect to svc-scheduler and svc-pricing
     cargo-->>scheduler: (GRPC REQ) query_flight
     scheduler-->>cargo: (GRPC REP) Error
-    cargo-->>client: (409 CONFLICT)
+    cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
 **(query) Off-Nominal**: Request to svc-pricing fails
@@ -230,7 +230,7 @@ sequenceDiagram
         note over cargo: break loop
     end
 
-    cargo-->>client: (409 CONFLICT)
+    cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
 ### `confirm` Handler
@@ -301,7 +301,7 @@ sequenceDiagram
     cargo-->>cargo: Connect to svc-scheduler
     cargo-->>scheduler: (GRPC REQ) confirm_flight
     scheduler-->>cargo: (GRPC REP) Error
-    cargo-->>client: (409 CONFLICT)
+    cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
 ### `cancel` Handler
@@ -369,5 +369,5 @@ sequenceDiagram
     cargo-->>cargo: Connect to svc-scheduler
     cargo-->>scheduler: (GRPC REQ) confirm_flight
     scheduler-->>cargo: (GRPC REP) Error
-    cargo-->>client: (409 CONFLICT)
+    cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
