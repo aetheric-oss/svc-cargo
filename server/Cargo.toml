@@ -1,10 +1,16 @@
 [package]
-name    = "svc-cargo"
-version = "0.2.0"
-edition = "2021"      # Allowed values are 2015, 2018, 2021
-# Rust Editions: https://doc.rust-lang.org/edition-guide/index.html
+description = "Arrow cargo service GRPC server"
+edition     = "2021"                                                       # Allowed values are 2015, 2018, 2021
+homepage    = "https://www.arrowair.com/docs/documentation/services/intro"
+keywords    = ["vtol", "server", "cargo"]                                # max 5
+license     = "BUSL-1.1"
+name        = "svc-cargo"
+version     = "0.8.1-develop.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories = [
+  "aerospace::drones",
+  "aerospace::protocols",
+] # max 5 -- https://crates.io/category_slugs
 
 [features]
 vendored-openssl = ['openssl/vendored']
