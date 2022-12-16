@@ -1,7 +1,12 @@
 [package]
-edition = "2021"
-name    = "svc-cargo-client-grpc"
-version = "0.2.0"
+description = "Arrow Cargo service GRPC client"
+edition     = "2021"                                                       # Allowed values are 2015, 2018, 2021
+homepage    = "https://www.arrowair.com/docs/documentation/services/intro"
+keywords    = ["vtol", "client", "cargo"]                                  # max 5
+license     = "BUSL-1.1"
+name        = "svc-cargo-client-grpc"
+repository  = "https://github.com/Arrow-air/svc-cargo"
+version     = "0.8.0-develop.9"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
