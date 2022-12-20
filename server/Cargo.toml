@@ -2,7 +2,7 @@
 description = "Arrow cargo service GRPC server"
 edition     = "2021"                                                       # Allowed values are 2015, 2018, 2021
 homepage    = "https://www.arrowair.com/docs/documentation/services/intro"
-keywords    = ["vtol", "server", "cargo"]                                # max 5
+keywords    = ["vtol", "server", "cargo"]                                  # max 5
 license     = "BUSL-1.1"
 name        = "svc-cargo"
 version     = "0.8.1-develop.0"
