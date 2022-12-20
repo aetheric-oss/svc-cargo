@@ -1,3 +1,18 @@
+## [Release 0.8.0-develop.1](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.8.0-develop.1)
+
+### 🛠 Maintenance
+
+-  **ci:** .make/env.mk - provisioned by terraform ([`afccef9`](https://github.com/Arrow-air/svc-cargo/commit/afccef9a345a0239b8b8cad7f607b3da235a8ec5))
+-  **ci:** .env.base - provisioned by terraform ([`2332fda`](https://github.com/Arrow-air/svc-cargo/commit/2332fda7488bad6b6a4152b973572094c4282f61))
+-  **ci:** .github/workflows/nightly.yml - provisioned by terraform ([`9f55cb0`](https://github.com/Arrow-air/svc-cargo/commit/9f55cb0f1d6297e82c78762ee0b81147737e7420))
+-  **ci:** license - provisioned by terraform ([`7731939`](https://github.com/Arrow-air/svc-cargo/commit/77319391c503def69a1cc484e8a328d3c2e78c76))
+-  **ci:** .editorconfig - provisioned by terraform ([`4763e33`](https://github.com/Arrow-air/svc-cargo/commit/4763e336c0154730e494172876b0de5760afaa2b))
+-  **ci:** .github/workflows/release.yml - provisioned by terraform ([`48b8b50`](https://github.com/Arrow-air/svc-cargo/commit/48b8b507ad8899d50048f170a3d0641da8f35ac0))
+
+### 📚 Documentation
+
+-  **readme:** add license notice and additional info (#24) ([`7209bab`](https://github.com/Arrow-air/svc-cargo/commit/7209bab6154b077fb3b19ca7a72e03bc74f697fd))
+
 ## [Release 0.8.0-develop.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.8.0-develop.0)
 
 ### ✨ Features
