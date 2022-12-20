@@ -8,7 +8,10 @@ name        = "svc-cargo-client-grpc"
 repository  = "https://github.com/Arrow-air/svc-cargo"
 version     = "0.8.0-develop.10"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories = [
+  "aerospace::drones",
+  "aerospace::protocols",
+] # max 5 -- https://crates.io/category_slugs
 
 [dependencies]
 prost       = "0.11"
