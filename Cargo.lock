@@ -1564,7 +1564,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo"
-version = "0.1.0"
+version = "0.8.0-develop.0"
 dependencies = [
  "axum 0.5.17",
  "cargo-husky",
@@ -1595,7 +1595,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.1.0"
+version = "0.8.0-develop.0"
 dependencies = [
  "prost",
  "prost-types",
@@ -1617,8 +1617,8 @@ dependencies = [
 
 [[package]]
 name = "svc-pricing-client-grpc"
-version = "0.3.0-develop.2"
-source = "git+https://github.com/Arrow-air/svc-pricing#afd93cd1b825495ebb0d5a6691c374b4d7bca065"
+version = "0.4.0"
+source = "git+https://github.com/Arrow-air/svc-pricing?branch=main#a97c6cbf8fd47841a4f8c60ca42f3ad35235a3ce"
 dependencies = [
  "prost",
  "prost-types",
@@ -1627,8 +1627,8 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler-client-grpc"
-version = "0.2.5-develop.3"
-source = "git+https://github.com/Arrow-air/svc-scheduler#99ddeaea3f6a3cbec43cfdd846ea8bfb98f5a967"
+version = "0.2.0"
+source = "git+https://github.com/Arrow-air/svc-scheduler?branch=main#5a03f6fd68cc76e4458287a9c9d46134f2393828"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -1639,8 +1639,8 @@ dependencies = [
 
 [[package]]
 name = "svc-storage-client-grpc"
-version = "0.8.1-develop.0"
-source = "git+https://github.com/Arrow-air/svc-storage#c580dd67580726be850587fec626eb1517446053"
+version = "0.2.0"
+source = "git+https://github.com/Arrow-air/svc-storage?branch=main#b963ed9a43aa1dd1381697146b96ba9b9bb73ad9"
 dependencies = [
  "geo-types",
  "num-derive",
