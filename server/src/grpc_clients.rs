@@ -10,11 +10,31 @@ pub use svc_storage_client_grpc::client::{
     vertiport_rpc_client::VertiportRpcClient, SearchFilter, VertiportData,
 };
 
-use crate::{grpc_debug, grpc_error, grpc_info};
 use futures::lock::Mutex;
 use log::{debug, error};
 use std::sync::Arc;
 pub use tonic::transport::Channel;
+
+/// Writes an info! message to the app::grpc logger
+macro_rules! grpc_info {
+    ($($arg:tt)+) => {
+        log::info!(target: "app::grpc", $($arg)+);
+    };
+}
+
+/// Writes an error! message to the app::grpc logger
+macro_rules! grpc_error {
+    ($($arg:tt)+) => {
+        log::error!(target: "app::grpc", $($arg)+);
+    };
+}
+
+/// Writes a debug! message to the app::grpc logger
+macro_rules! grpc_debug {
+    ($($arg:tt)+) => {
+        log::debug!(target: "app::grpc", $($arg)+);
+    };
+}
 
 #[derive(Clone, Debug)]
 pub struct GrpcClients {

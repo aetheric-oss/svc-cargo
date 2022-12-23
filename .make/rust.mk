@@ -123,7 +123,7 @@ rust-validate-openapi: rust-openapi
 		jeanberu/swagger-cli \
 		swagger-cli validate /out/$(PACKAGE_NAME)-openapi.json
 
-rust-grpc-api:
+rust-grpc-api: check-cargo-registry rust-docker-pull
 	@echo "$(CYAN)Generating GRPC documentation...$(SGR0)"
 	mkdir -p $(OUTPUTS_PATH)
 	@docker run \

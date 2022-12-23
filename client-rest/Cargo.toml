@@ -9,7 +9,6 @@ version = "0.1.0"
 chrono     = { version = "0.4", features = ["serde"] }
 serde      = "1.0"
 serde_json = "1.0"
-utoipa     = { version = "2.2", features = ["axum_extras"] }
 
 [[example]]
 name = "rest"
@@ -17,3 +16,7 @@ name = "rest"
 [dev-dependencies]
 hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1.20", features = ["full"] }
+
+[dependencies.utoipa]
+features = ["axum_extras", "chrono"]
+version  = "2.2"

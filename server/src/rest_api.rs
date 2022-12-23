@@ -1,8 +1,8 @@
 use axum::{extract::Extension, Json};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use hyper::{HeaderMap, StatusCode};
-use std::time::SystemTime;
-
-use crate::{req_debug, req_error, req_info};
+use prost_types::Timestamp;
+use uuid::Uuid;
 
 use crate::grpc_clients::{
     Channel, GrpcClients, Id, PricingClient, PricingRequest, QueryFlightPlan, QueryFlightRequest,
@@ -18,6 +18,41 @@ pub use rest_types::{
     FlightCancel, FlightConfirm, FlightOption, FlightQuery, Vertiport, VertiportsQuery,
 };
 
+/// Writes an info! message to the app::req logger
+macro_rules! req_info {
+    ($($arg:tt)+) => {
+        log::info!(target: "app::req", $($arg)+);
+    };
+}
+
+/// Writes an error! message to the app::req logger
+macro_rules! req_error {
+    ($($arg:tt)+) => {
+        log::error!(target: "app::req", $($arg)+);
+    };
+}
+
+/// Writes a debug! message to the app::req logger
+macro_rules! req_debug {
+    ($($arg:tt)+) => {
+        log::debug!(target: "app::req", $($arg)+);
+    };
+}
+
+pub fn ts_to_dt(ts: &Timestamp) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
+    let nanos: u32 = ts.nanos.try_into()?;
+    let ndt = NaiveDateTime::from_timestamp_opt(ts.seconds, nanos).unwrap();
+
+    Ok(DateTime::<Utc>::from_utc(ndt, Utc))
+}
+
+pub fn dt_to_ts(dt: &DateTime<Utc>) -> Result<Timestamp, Box<dyn std::error::Error>> {
+    let seconds = dt.timestamp();
+    let nanos: i32 = dt.timestamp_subsec_nanos().try_into()?;
+
+    Ok(Timestamp { seconds, nanos })
+}
+
 ///////////////////////////////////////////////////////////////////////
 /// Constants
 ///////////////////////////////////////////////////////////////////////
@@ -25,41 +60,47 @@ pub use rest_types::{
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
+/// Don't allow large UUID strings
+const UUID_MAX_SIZE: usize = 50; // Sometimes braces or hyphens
+
 ///////////////////////////////////////////////////////////////////////
 /// Helpers
 ///////////////////////////////////////////////////////////////////////
 
 /// Returns true if a given string is UUID format
 fn is_uuid(s: &str) -> bool {
-    uuid::Uuid::parse_str(s).is_ok()
+    // Prevent buffer overflows
+    if s.len() > UUID_MAX_SIZE {
+        req_error!("(is_uuid) input string larger than expected: {}.", s.len());
+        return false;
+    }
+
+    Uuid::parse_str(s).is_ok()
 }
 
 /// Parses the incoming flight plans for information the customer wants
 fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
-    let time_depart: SystemTime;
-    let time_arrive: SystemTime;
-
-    if let Some(prost_time) = plan.estimated_departure.clone() {
-        if let Ok(sys_time) = SystemTime::try_from(prost_time) {
-            time_depart = sys_time;
-        } else {
-            req_error!("(parse_flight) could not convert departure time; discarding.");
-            return None;
-        };
-    } else {
-        req_error!("(parse_flight) no departure time in flight plan; discarding.");
+    let Some(prost_time) = plan.estimated_departure.clone() else {
+        let error_msg = "no departure time in flight plan; discarding.";
+        req_error!("(parse_flight) {}", &error_msg);
         return None;
     };
 
-    if let Some(prost_time) = plan.estimated_arrival.clone() {
-        if let Ok(sys_time) = SystemTime::try_from(prost_time) {
-            time_arrive = sys_time;
-        } else {
-            req_error!("(parse_flight) could not convert arrival time; discarding.");
-            return None;
-        };
-    } else {
-        req_error!("(parse_flight) no arrival time in flight plan; discarding.");
+    let Ok(time_depart) = ts_to_dt(&prost_time) else {
+        let error_msg = "can't convert prost timestamp to datetime.";
+        req_error!("(parse_flight) {}", &error_msg);
+        return None;
+    };
+
+    let Some(prost_time) = plan.estimated_arrival.clone() else {
+        let error_msg = "(parse_flight) no arrival time in flight plan; discarding.";
+        req_error!("(parse_flight) {}", &error_msg);
+        return None;
+    };
+
+    let Ok(time_arrive) = ts_to_dt(&prost_time) else {
+        let error_msg = "can't convert prost timestamp to datetime.";
+        req_error!("(parse_flight) {}", &error_msg);
         return None;
     };
 
@@ -75,12 +116,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
     })
 }
 
-///////////////////////////////////////////////////////////////////////
-/// API Handlers
-///////////////////////////////////////////////////////////////////////
-/// Get all vertiports in a region
-///
-/// List all vertiport items from svc-storage
+/// Get Regional Vertiports
 #[utoipa::path(
     post,
     path = "/cargo/vertiports",
@@ -137,14 +173,14 @@ pub async fn query_vertiports(
             Ok(Json(ret))
         }
         Err(e) => {
-            let error_msg = format!("error response from svc-storage: {e}");
-            req_error!("(query_vertiports) {}", &error_msg);
+            let error_msg = "error response from svc-storage.".to_string();
+            req_error!("(query_vertiports) {} {:?}", &error_msg, e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
 }
 
-/// Search FlightOptions by query params.
+/// Get Available Flights
 ///
 /// Search `FlightOption`s by query params and return matching `FlightOption`s.
 #[utoipa::path(
@@ -195,29 +231,41 @@ pub async fn query_flight(
         departure_time: None,
     };
 
-    let current_time = SystemTime::now();
+    let current_time = Utc::now();
 
     // Time windows are properly specified
-    if let Some(timestamp) = payload.timestamp_arrive_max {
-        if timestamp <= current_time {
-            req_info!("(query flight) current time: {:?}", current_time);
-            let error_msg = format!("max arrival time is in the past: {:?}", timestamp);
-            req_error!("(query_flight) {}", &error_msg);
+    if let Some(window) = payload.time_arrive_window {
+        if window.timestamp_max <= current_time {
+            let error_msg = "max arrival time is in the past.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
 
-        flight_query.arrival_time = Some(timestamp.into());
+        //  TODO submit time windows to svc-scheduler
+        let Ok(ts) = dt_to_ts(&window.timestamp_max) else {
+            let error_msg = "unable to convert datetime to timestamp.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
+            return Err((StatusCode::BAD_REQUEST, error_msg));
+        };
+
+        flight_query.arrival_time = Some(ts);
     }
 
-    if let Some(timestamp) = payload.timestamp_depart_max {
-        if timestamp <= current_time {
-            req_info!("(query flight) current time: {:?}", current_time);
-            let error_msg = format!("max depart time is in the past: {:?}", timestamp);
-            req_error!("(query_flight) {}", &error_msg);
+    if let Some(window) = payload.time_depart_window {
+        if window.timestamp_max <= current_time {
+            let error_msg = "max depart time is in the past.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
 
-        flight_query.departure_time = Some(timestamp.into());
+        //  TODO submit time windows to svc-scheduler
+        let Ok(ts) = dt_to_ts(&window.timestamp_max) else {
+            let error_msg = "unable to convert datetime to timestamp.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
+            return Err((StatusCode::BAD_REQUEST, error_msg));
+        };
+
+        flight_query.departure_time = Some(ts);
     }
 
     if flight_query.departure_time.is_none() && flight_query.arrival_time.is_none() {
@@ -265,8 +313,8 @@ pub async fn query_flight(
             req_info!("(query_flight) found {} flight options.", flights.len());
         }
         Err(e) => {
-            let error_msg = format!("svc-scheduler error: {e}");
-            req_error!("(query_flight) {}", &error_msg);
+            let error_msg = "svc-scheduler error.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, e);
             req_error!("(query_flight) invalidating svc-scheduler client.");
             grpc_clients.scheduler.invalidate().await;
             return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
@@ -290,8 +338,8 @@ pub async fn query_flight(
                 fp.currency_type = Some("usd".to_string());
             }
             Err(e) => {
-                let error_msg = format!("svc-pricing error: {e}");
-                req_error!("(query_flight) {}", &error_msg);
+                let error_msg = "svc-pricing error.".to_string();
+                req_error!("(query_flight) {} {:?}", &error_msg, e);
                 req_error!("(query_flight) invalidating svc-pricing client.");
                 grpc_clients.pricing.invalidate().await;
                 return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
@@ -299,13 +347,11 @@ pub async fn query_flight(
         }
     }
 
-    req_debug!("(query_flight) exit with {} flight options", flights.len());
+    req_debug!("(query_flight) exit with {} flight options.", flights.len());
     Ok(Json(flights))
 }
 
 /// Confirm a Flight
-///
-/// Tries to confirm a flight with the svc-scheduler
 #[utoipa::path(
     put,
     path = "/cargo/confirm",
@@ -355,16 +401,14 @@ pub async fn confirm_flight(
             }
         }
         Err(e) => {
-            let error_msg = format!("svc-scheduler error: {e}.");
-            req_error!("(confirm_flight) {}", &error_msg);
+            let error_msg = "svc-scheduler error.".to_string();
+            req_error!("(confirm_flight) {} {:?}", &error_msg, e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
 }
 
-/// Cancel flight
-///
-/// Tell svc-scheduler to cancel a flight
+/// Cancel a Flight
 #[utoipa::path(
     delete,
     path = "/cargo/cancel",
@@ -407,14 +451,14 @@ pub async fn cancel_flight(
                 req_info!("(cancel_flight) svc-scheduler cancel success.");
                 Ok(ret.id)
             } else {
-                let error_msg = format!("svc-scheduler cancel fail: {}", ret.reason);
-                req_error!("(cancel_flight) {}", &error_msg);
+                let error_msg = "svc-scheduler cancel fail.".to_string();
+                req_error!("(cancel_flight) {} {}", &error_msg, ret.reason);
                 Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
             }
         }
         Err(e) => {
-            let error_msg = format!("svc-scheduler request fail: {e}");
-            req_error!("(cancel_flight) {}", &error_msg);
+            let error_msg = "svc-scheduler request fail.".to_string();
+            req_error!("(cancel_flight) {} {:?}", &error_msg, e);
             Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
         }
     }
@@ -437,8 +481,8 @@ mod tests {
             pad_depart_id: "".to_string(),
             vertiport_arrive_id: "".to_string(),
             pad_arrive_id: "".to_string(),
-            estimated_departure: Some(SystemTime::now().into()),
-            estimated_arrival: Some(SystemTime::now().into()),
+            estimated_departure: dt_to_ts(&Utc::now()).ok(),
+            estimated_arrival: dt_to_ts(&Utc::now()).ok(),
             actual_departure: None,
             actual_arrival: None,
             flight_release_approval: None,
