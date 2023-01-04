@@ -1,3 +1,13 @@
+## [Release 0.8.0-develop.2](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.8.0-develop.2)
+
+### 🛠 Maintenance
+
+-  **ci:** .make/rust.mk - provisioned by terraform ([`16361fe`](https://github.com/Arrow-air/svc-cargo/commit/16361fee4290df9d470095054487ec05794f36b4))
+
+### 📚 Documentation
+
+-  **conops:** add conops (#26) ([`bceea4c`](https://github.com/Arrow-air/svc-cargo/commit/bceea4c2a5340de96c0b406f963a1c7635f204e2))
+
 ## [Release 0.8.0-develop.1](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.8.0-develop.1)
 
 ### 🛠 Maintenance
