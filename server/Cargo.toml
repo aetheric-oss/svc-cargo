@@ -26,6 +26,7 @@ config                    = "0.13"
 env_logger                = "0.9"
 futures                   = "0.3"
 hyper                     = "0.14"
+lib-common                = { git = "https://github.com/Arrow-air/lib-common", branch = "develop" }
 log                       = "0.4"
 openssl                   = "0.10"
 prost                     = "0.11"

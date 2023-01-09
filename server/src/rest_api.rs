@@ -1,7 +1,7 @@
 use axum::{extract::Extension, Json};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::Utc;
 use hyper::{HeaderMap, StatusCode};
-use prost_types::Timestamp;
+use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
 use uuid::Uuid;
 
 use crate::grpc_clients::{
@@ -39,33 +39,11 @@ macro_rules! req_debug {
     };
 }
 
-pub fn ts_to_dt(ts: &Timestamp) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
-    let nanos: u32 = ts.nanos.try_into()?;
-    let ndt = NaiveDateTime::from_timestamp_opt(ts.seconds, nanos).unwrap();
-
-    Ok(DateTime::<Utc>::from_utc(ndt, Utc))
-}
-
-pub fn dt_to_ts(dt: &DateTime<Utc>) -> Result<Timestamp, Box<dyn std::error::Error>> {
-    let seconds = dt.timestamp();
-    let nanos: i32 = dt.timestamp_subsec_nanos().try_into()?;
-
-    Ok(Timestamp { seconds, nanos })
-}
-
-///////////////////////////////////////////////////////////////////////
-/// Constants
-///////////////////////////////////////////////////////////////////////
-
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
 /// Don't allow large UUID strings
 const UUID_MAX_SIZE: usize = 50; // Sometimes braces or hyphens
-
-///////////////////////////////////////////////////////////////////////
-/// Helpers
-///////////////////////////////////////////////////////////////////////
 
 /// Returns true if a given string is UUID format
 fn is_uuid(s: &str) -> bool {
@@ -86,7 +64,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
         return None;
     };
 
-    let Ok(time_depart) = ts_to_dt(&prost_time) else {
+    let Some(time_depart) = timestamp_to_datetime(&prost_time) else {
         let error_msg = "can't convert prost timestamp to datetime.";
         req_error!("(parse_flight) {}", &error_msg);
         return None;
@@ -98,7 +76,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
         return None;
     };
 
-    let Ok(time_arrive) = ts_to_dt(&prost_time) else {
+    let Some(time_arrive) = timestamp_to_datetime(&prost_time) else {
         let error_msg = "can't convert prost timestamp to datetime.";
         req_error!("(parse_flight) {}", &error_msg);
         return None;
@@ -241,8 +219,7 @@ pub async fn query_flight(
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
 
-        //  TODO submit time windows to svc-scheduler
-        let Ok(ts) = dt_to_ts(&window.timestamp_max) else {
+        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
             let error_msg = "unable to convert datetime to timestamp.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
             return Err((StatusCode::BAD_REQUEST, error_msg));
@@ -258,8 +235,7 @@ pub async fn query_flight(
             return Err((StatusCode::BAD_REQUEST, error_msg));
         }
 
-        //  TODO submit time windows to svc-scheduler
-        let Ok(ts) = dt_to_ts(&window.timestamp_max) else {
+        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
             let error_msg = "unable to convert datetime to timestamp.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
             return Err((StatusCode::BAD_REQUEST, error_msg));
@@ -471,6 +447,9 @@ mod tests {
 
     #[test]
     fn ut_parse_flight() {
+        let depart_time = datetime_to_timestamp(&Utc::now());
+        assert!(depart_time.is_some());
+
         let fp = QueryFlightPlan {
             id: "".to_string(),
             pilot_id: "".to_string(),
@@ -481,8 +460,8 @@ mod tests {
             pad_depart_id: "".to_string(),
             vertiport_arrive_id: "".to_string(),
             pad_arrive_id: "".to_string(),
-            estimated_departure: dt_to_ts(&Utc::now()).ok(),
-            estimated_arrival: dt_to_ts(&Utc::now()).ok(),
+            estimated_departure: depart_time.clone(),
+            estimated_arrival: depart_time,
             actual_departure: None,
             actual_arrival: None,
             flight_release_approval: None,
