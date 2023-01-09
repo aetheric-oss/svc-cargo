@@ -2,10 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 
 /// Request Body Information for Flight Query
-#[allow(dead_code)]
 #[derive(Debug, Clone, IntoParams, ToSchema)]
 #[derive(Deserialize, Serialize)]
 pub struct FlightQuery {
@@ -15,20 +14,25 @@ pub struct FlightQuery {
     /// The String ID of the destination vertiport
     pub vertiport_arrive_id: String,
 
-    /// The start of the pad departure window
-    pub timestamp_depart_min: Option<SystemTime>,
+    /// The window of departure
+    pub time_depart_window: Option<TimeWindow>,
 
-    /// The end of the pad departure window
-    pub timestamp_depart_max: Option<SystemTime>,
-
-    /// The start of the pad arrival window
-    pub timestamp_arrive_min: Option<SystemTime>,
-
-    /// The end of the pad arrival window
-    pub timestamp_arrive_max: Option<SystemTime>,
+    /// The window of arrival
+    pub time_arrive_window: Option<TimeWindow>,
 
     /// The estimated weight of cargo
     pub cargo_weight_kg: f32
+}
+
+/// Time window (min and max)
+#[derive(Debug, Copy, Clone, IntoParams, ToSchema)]
+#[derive(Deserialize, Serialize)]
+pub struct TimeWindow {
+    /// The start of the pad window
+    pub timestamp_min: DateTime<Utc>,
+
+    /// The end of the pad window
+    pub timestamp_max: DateTime<Utc>,
 }
 
 /// Request Body Information to Cancel a Flight
@@ -67,10 +71,10 @@ pub struct FlightOption {
     pub vertiport_arrive_id: String,
 
     /// Estimated departure timestamp
-    pub timestamp_depart: SystemTime,
+    pub timestamp_depart: DateTime<Utc>,
 
     /// Estimated arrival timestamp
-    pub timestamp_arrive: SystemTime,
+    pub timestamp_arrive: DateTime<Utc>,
 
     /// The estimated trip distance in meters
     pub distance_m: f32,

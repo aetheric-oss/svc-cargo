@@ -1,8 +1,9 @@
 [package]
-description = "Arrow cargo service GRPC server"
+authors     = ["A.M. Smith"]
+description = "Cargo Service GRPC and REST servers"
 edition     = "2021"                                                       # Allowed values are 2015, 2018, 2021
 homepage    = "https://www.arrowair.com/docs/documentation/services/intro"
-keywords    = ["vtol", "server", "cargo"]                                  # max 5
+keywords    = ["vtol", "server"]                                           # max 5
 license     = "BUSL-1.1"
 name        = "svc-cargo"
 repository  = "https://github.com/Arrow-air/svc-cargo"
@@ -20,9 +21,12 @@ vendored-openssl = ['openssl/vendored']
 axum                      = "0.5"
 cargo-husky               = "1"
 chrono                    = { version = "0.4", features = ["serde"] }
+clap                      = { version = "4.0", features = ["derive"] }
+config                    = "0.13"
 env_logger                = "0.9"
 futures                   = "0.3"
 hyper                     = "0.14"
+lib-common                = { git = "https://github.com/Arrow-air/lib-common", branch = "develop" }
 log                       = "0.4"
 openssl                   = "0.10"
 prost                     = "0.11"
@@ -30,19 +34,21 @@ prost-build               = "0.11"
 prost-types               = "0.11"
 serde                     = "1.0"
 serde_json                = "1.0"
-svc-pricing-client-grpc   = { git = "https://github.com/Arrow-air/svc-pricing", branch = "main" }
-svc-scheduler-client-grpc = { git = "https://github.com/Arrow-air/svc-scheduler", branch = "main" }
-svc-storage-client-grpc   = { git = "https://github.com/Arrow-air/svc-storage", branch = "main" }
+svc-pricing-client-grpc   = { git = "https://github.com/Arrow-air/svc-pricing", branch = "develop" }
+svc-scheduler-client-grpc = { git = "https://github.com/Arrow-air/svc-scheduler", branch = "develop" }
+svc-storage-client-grpc   = { git = "https://github.com/Arrow-air/svc-storage", branch = "develop" }
 tokio                     = { version = "1.20", features = ["full"] }
 tokio-util                = "0.7"
 tonic                     = "0.8"
 tonic-health              = "0.7"
-utoipa                    = { version = "2.1", features = ["axum_extras"] }
-utoipa-swagger-ui         = { version = "2.0", features = ["axum"] }
 uuid                      = { version = "1.2", features = ["v4"] }
 
 [build-dependencies]
 tonic-build = "0.8"
+
+[dependencies.utoipa]
+features = ["axum_extras", "chrono"]
+version  = "2.2"
 
 [dependencies.log4rs]
 features = [
