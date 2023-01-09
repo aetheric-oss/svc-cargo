@@ -3,10 +3,10 @@
 # `svc-cargo`
 
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Arrow-air/svc-cargo?include_prereleases)
-![Sanity Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=main)
+![Sanity Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=develop)
 ![Rust
-Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=main)
-![Python Flake8](https://github.com/arrow-air/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=main)
+Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=develop)
+![Python Flake8](https://github.com/arrow-air/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=develop)
 ![Arrow DAO
 Discord](https://img.shields.io/discord/853833144037277726?style=plastic)
 

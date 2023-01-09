@@ -25,4 +25,3 @@
 ### 📚 Documentation
 
 -  **sdd:** add SDD ([`99d12b6`](https://github.com/Arrow-air/svc-cargo/commit/99d12b680eee7646f560527c8255ade0eb6a3899))
-
