@@ -8,18 +8,45 @@ mod cargo_grpc {
     include!("grpc.rs");
 }
 
-#[macro_use]
-mod loggers;
-
 use axum::{extract::Extension, handler::Handler, response::IntoResponse, routing, Router};
 use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
+use clap::Parser;
 use grpc_clients::GrpcClients;
 use log::{info, warn};
 use utoipa::OpenApi;
 
-///////////////////////////////////////////////////////////////////////
-/// GRPC SERVER
-///////////////////////////////////////////////////////////////////////
+#[derive(Parser, Debug)]
+struct Cli {
+    /// Target file to write the OpenAPI Spec
+    #[arg(long)]
+    openapi: Option<String>,
+}
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        rest_api::query_flight,
+        rest_api::query_vertiports,
+        rest_api::confirm_flight,
+        rest_api::cancel_flight
+    ),
+    components(
+        schemas(
+            rest_api::rest_types::FlightOption,
+            rest_api::rest_types::Vertiport,
+            rest_api::rest_types::ConfirmStatus,
+            rest_api::rest_types::VertiportsQuery,
+            rest_api::rest_types::FlightCancel,
+            rest_api::rest_types::FlightQuery,
+            rest_api::rest_types::FlightConfirm,
+            rest_api::rest_types::TimeWindow
+        )
+    ),
+    tags(
+        (name = "svc-cargo", description = "svc-cargo REST API")
+    )
+)]
+struct ApiDoc;
 
 /// Struct that implements the CargoRpc trait.
 ///
@@ -71,10 +98,6 @@ async fn grpc_server() {
         .unwrap();
 }
 
-///////////////////////////////////////////////////////////////////////
-/// REST SERVER
-///////////////////////////////////////////////////////////////////////
-
 /// Responds a NOT_FOUND status and error string
 ///
 /// # Arguments
@@ -120,31 +143,7 @@ pub async fn rest_server(grpc_clients: GrpcClients) {
         .parse::<u16>()
         .unwrap_or(8000);
 
-    #[derive(OpenApi)]
-    #[openapi(
-        paths(
-            rest_api::query_flight,
-            rest_api::query_vertiports,
-            rest_api::confirm_flight,
-            rest_api::cancel_flight
-        ),
-        components(
-            schemas(
-                rest_api::rest_types::FlightOption,
-                rest_api::rest_types::Vertiport,
-                rest_api::rest_types::ConfirmStatus,
-                rest_api::rest_types::VertiportsQuery,
-                rest_api::rest_types::FlightQuery
-            )
-        ),
-        tags(
-            (name = "svc-cargo", description = "svc-cargo API")
-        )
-    )]
-    struct ApiDoc;
-
     let app = Router::new()
-        // .merge(SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .fallback(not_found.into_service())
         .route("/cargo/cancel", routing::delete(rest_api::cancel_flight))
         .route("/cargo/query", routing::post(rest_api::query_flight))
@@ -164,14 +163,30 @@ pub async fn rest_server(grpc_clients: GrpcClients) {
         .unwrap();
 }
 
+/// Create OpenAPI3 Specification File
+fn generate_openapi_spec(target: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let output = ApiDoc::openapi()
+        .to_pretty_json()
+        .expect("(ERROR) unable to write openapi specification to json.");
+
+    std::fs::write(target, output).expect("(ERROR) unable to write json string to file.");
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    {
-        let log_cfg: &str = "log4rs.yaml";
-        if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
-            println!("(logger) could not parse {}. {}", log_cfg, e);
-            panic!();
-        }
+    // Allow option to only generate the spec file to a given location
+    let args = Cli::parse();
+    if let Some(target) = args.openapi {
+        return generate_openapi_spec(&target);
+    }
+
+    // Start Logger
+    let log_cfg: &str = "log4rs.yaml";
+    if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
+        println!("(logger) could not parse {}. {}", log_cfg, e);
+        panic!();
     }
 
     // Start GRPC Server
