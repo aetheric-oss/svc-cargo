@@ -98,6 +98,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
 #[utoipa::path(
     post,
     path = "/cargo/vertiports",
+    tag = "svc-cargo",
     request_body = VertiportsQuery,
     responses(
         (status = 200, description = "List all cargo-accessible vertiports successfully", body = [Vertiport]),
@@ -164,6 +165,7 @@ pub async fn query_vertiports(
 #[utoipa::path(
     post,
     path = "/cargo/query",
+    tag = "svc-cargo",
     request_body = FlightQuery,
     responses(
         (status = 200, description = "List available flight plans", body = [FlightOption]),
@@ -331,6 +333,7 @@ pub async fn query_flight(
 #[utoipa::path(
     put,
     path = "/cargo/confirm",
+    tag = "svc-cargo",
     request_body = FlightConfirm,
     responses(
         (status = 200, description = "Flight Confirmed", body = String),
@@ -388,6 +391,7 @@ pub async fn confirm_flight(
 #[utoipa::path(
     delete,
     path = "/cargo/cancel",
+    tag = "svc-cargo",
     responses(
         (status = 200, description = "Flight cancelled successfully"),
         (status = 400, description = "Request body is invalid format"),
