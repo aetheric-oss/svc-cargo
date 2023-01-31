@@ -1,14 +1,6 @@
-pub use svc_pricing_client::pricing_grpc::{
-    pricing_client::PricingClient, pricing_request::ServiceType, PricingRequest,
-};
-
-pub use svc_scheduler_client_grpc::grpc::{
-    scheduler_rpc_client::SchedulerRpcClient, Id, QueryFlightPlan, QueryFlightRequest,
-};
-
-pub use svc_storage_client_grpc::client::{
-    vertiport_rpc_client::VertiportRpcClient, SearchFilter, VertiportData,
-};
+pub use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
+pub use svc_scheduler_client_grpc::grpc::scheduler_rpc_client::SchedulerRpcClient;
+pub use svc_storage_client_grpc::VertiportClient;
 
 use futures::lock::Mutex;
 use log::{debug, error};
@@ -39,7 +31,7 @@ macro_rules! grpc_debug {
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
     pub scheduler: GrpcClient<SchedulerRpcClient<Channel>>,
-    pub storage: GrpcClient<VertiportRpcClient<Channel>>,
+    pub storage: GrpcClient<VertiportClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
@@ -49,7 +41,7 @@ pub struct GrpcClient<T> {
     address: String,
 }
 
-/// Returns a string in http://<host>:<port> format from provided
+/// Returns a string in http://host:port format from provided
 /// environment variables
 fn get_grpc_endpoint(env_host: &str, env_port: &str) -> String {
     debug!("(get_grpc_endpoint) entry");
@@ -88,10 +80,10 @@ impl<T> GrpcClient<T> {
 }
 
 // TODO Figure out how to collapse these three implementations for each client into
-//   one generic impl. VertiportRpcClient does not simply impl a trait,
+//   one generic impl. VertiportClient does not simply impl a trait,
 //   it wraps the tonic::client::Grpc<T> type so it's a bit tricky
-impl GrpcClient<VertiportRpcClient<Channel>> {
-    pub async fn get_client(&mut self) -> Option<VertiportRpcClient<Channel>> {
+impl GrpcClient<VertiportClient<Channel>> {
+    pub async fn get_client(&mut self) -> Option<VertiportClient<Channel>> {
         grpc_debug!("(get_client) storage::vertiport entry");
 
         let arc = Arc::clone(&self.inner);
@@ -102,7 +94,7 @@ impl GrpcClient<VertiportRpcClient<Channel>> {
                 "(grpc) connecting to svc-storage vertiport server at {}",
                 self.address.clone()
             );
-            let client_option = match VertiportRpcClient::connect(self.address.clone()).await {
+            let client_option = match VertiportClient::connect(self.address.clone()).await {
                 Ok(s) => Some(s),
                 Err(e) => {
                     grpc_error!(
@@ -187,7 +179,7 @@ impl GrpcClients {
                 "SCHEDULER_HOST_GRPC",
                 "SCHEDULER_PORT_GRPC",
             ),
-            storage: GrpcClient::<VertiportRpcClient<Channel>>::new(
+            storage: GrpcClient::<VertiportClient<Channel>>::new(
                 "STORAGE_HOST_GRPC",
                 "STORAGE_PORT_GRPC",
             ),
