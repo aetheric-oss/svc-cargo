@@ -1,21 +1,27 @@
+pub mod rest_types {
+    include!("../../openapi/types.rs");
+}
+
 use axum::{extract::Extension, Json};
 use chrono::Utc;
 use hyper::{HeaderMap, StatusCode};
 use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
 use uuid::Uuid;
 
-use crate::grpc_clients::{
-    Channel, GrpcClients, Id, PricingClient, PricingRequest, QueryFlightPlan, QueryFlightRequest,
-    SchedulerRpcClient, SearchFilter, ServiceType,
+use crate::grpc_clients::GrpcClients;
+
+use svc_pricing_client::pricing_grpc::{
+    pricing_request::ServiceType, PricingRequest, PricingRequests,
 };
 
-/// Types Used in REST Messages
-pub mod rest_types {
-    include!("../../openapi/types.rs");
-}
+use svc_scheduler_client_grpc::grpc::{
+    Id, QueryFlightPlan, QueryFlightPlanBundle, QueryFlightRequest,
+};
+
+use svc_storage_client_grpc::client::SearchFilter;
 
 pub use rest_types::{
-    FlightCancel, FlightConfirm, FlightOption, FlightQuery, Vertiport, VertiportsQuery,
+    FlightCancel, FlightConfirm, FlightLeg, FlightQuery, Itinerary, Vertiport, VertiportsQuery,
 };
 
 /// Writes an info! message to the app::req logger
@@ -57,7 +63,7 @@ fn is_uuid(s: &str) -> bool {
 }
 
 /// Parses the incoming flight plans for information the customer wants
-fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
+fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
     let Some(prost_time) = plan.estimated_departure.clone() else {
         let error_msg = "no departure time in flight plan; discarding.";
         req_error!("(parse_flight) {}", &error_msg);
@@ -82,7 +88,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightOption> {
         return None;
     };
 
-    Some(FlightOption {
+    Some(FlightLeg {
         fp_id: plan.id.clone(),
         vertiport_depart_id: plan.vertiport_depart_id.to_string(),
         vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
@@ -130,12 +136,12 @@ pub async fn query_vertiports(
     let mut client = client_option.unwrap();
 
     // Make request, process response
-    let response = client.vertiports(request).await;
+    let response = client.get_all_with_filter(request).await;
     match response {
         Ok(r) => {
             let ret: Vec<Vertiport> = r
                 .into_inner()
-                .vertiports
+                .list
                 .into_iter()
                 .map(|x| {
                     let data = x.data.unwrap();
@@ -161,14 +167,14 @@ pub async fn query_vertiports(
 
 /// Get Available Flights
 ///
-/// Search `FlightOption`s by query params and return matching `FlightOption`s.
+/// Search for available trips and return a list of [`Itinerary`].
 #[utoipa::path(
     post,
     path = "/cargo/query",
     tag = "svc-cargo",
     request_body = FlightQuery,
     responses(
-        (status = 200, description = "List available flight plans", body = [FlightOption]),
+        (status = 200, description = "List available flight plans", body = [Itinerary]),
         (status = 400, description = "Request body is invalid format"),
         (status = 500, description = "svc-scheduler or svc-pricing returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
@@ -177,8 +183,12 @@ pub async fn query_vertiports(
 pub async fn query_flight(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<FlightQuery>,
-) -> Result<Json<Vec<FlightOption>>, (StatusCode, String)> {
+) -> Result<Json<Vec<Itinerary>>, (StatusCode, String)> {
     req_debug!("(query_flight) entry.");
+
+    //
+    // Validate Request
+    //
 
     // Reject extreme weights
     let weight_g: u32 = (payload.cargo_weight_kg * 1000.0) as u32;
@@ -207,8 +217,8 @@ pub async fn query_flight(
         weight_grams: Some(weight_g),
         vertiport_depart_id: payload.vertiport_depart_id,
         vertiport_arrive_id: payload.vertiport_arrive_id,
-        arrival_time: None,
-        departure_time: None,
+        earliest_departure_time: None,
+        latest_arrival_time: None,
     };
 
     let current_time = Utc::now();
@@ -227,7 +237,7 @@ pub async fn query_flight(
             return Err((StatusCode::BAD_REQUEST, error_msg));
         };
 
-        flight_query.arrival_time = Some(ts);
+        flight_query.latest_arrival_time = Some(ts);
     }
 
     if let Some(window) = payload.time_depart_window {
@@ -243,90 +253,118 @@ pub async fn query_flight(
             return Err((StatusCode::BAD_REQUEST, error_msg));
         };
 
-        flight_query.departure_time = Some(ts);
+        flight_query.earliest_departure_time = Some(ts);
     }
 
-    if flight_query.departure_time.is_none() && flight_query.arrival_time.is_none() {
+    if flight_query.earliest_departure_time.is_none() && flight_query.latest_arrival_time.is_none()
+    {
         let error_msg = "invalid time window.".to_string();
         req_error!("(query_flight) {}", &error_msg);
         return Err((StatusCode::BAD_REQUEST, error_msg));
     }
 
-    // Get Clients
-    let mut scheduler_client: SchedulerRpcClient<Channel>;
-    let mut pricing_client: PricingClient<Channel>;
+    //
+    // GRPC Request
+    //
 
-    match grpc_clients.scheduler.get_client().await {
-        Some(c) => scheduler_client = c,
-        None => {
-            let error_msg = "svc-scheduler unavailable.".to_string();
-            req_error!("(query_flight) {}", &error_msg);
-            return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
-        }
+    let Some(mut scheduler_client) = grpc_clients.scheduler.get_client().await else {
+        let error_msg = "svc-scheduler unavailable.".to_string();
+        req_error!("(query_flight) {}", &error_msg);
+        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
     };
 
-    match grpc_clients.pricing.get_client().await {
-        Some(c) => pricing_client = c,
-        None => {
-            let error_msg = "svc-pricing unavailable.".to_string();
-            req_error!("(query_flight) {}", &error_msg);
-            return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
-        }
+    let Some(mut pricing_client) = grpc_clients.pricing.get_client().await else {
+        let error_msg = "svc-pricing unavailable.".to_string();
+        req_error!("(query_flight) {}", &error_msg);
+        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
     };
 
-    // Make request, process response
     let request = tonic::Request::new(flight_query);
     let response = scheduler_client.query_flight(request).await;
-    let mut flights: Vec<FlightOption>;
-
-    match response {
-        Ok(r) => {
-            flights = r
-                .into_inner()
-                .flights
-                .into_iter()
-                .filter_map(|x| parse_flight(&x))
-                .collect();
-
-            req_info!("(query_flight) found {} flight options.", flights.len());
-        }
-        Err(e) => {
-            let error_msg = "svc-scheduler error.".to_string();
-            req_error!("(query_flight) {} {:?}", &error_msg, e);
-            req_error!("(query_flight) invalidating svc-scheduler client.");
-            grpc_clients.scheduler.invalidate().await;
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
-        }
+    let Ok(response) = response else {
+        let error_msg = "svc-scheduler error.".to_string();
+        req_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
+        req_error!("(query_flight) invalidating svc-scheduler client.");
+        grpc_clients.scheduler.invalidate().await;
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
     };
+    let bundles: Vec<QueryFlightPlanBundle> = response.into_inner().flights;
+
+    //
+    // Unpack flight itineraries
+    //
+
+    // List of lists of flights
+    let mut itineraries: Vec<Itinerary> = vec![];
+    for b in &bundles {
+        let mut legs: Vec<FlightLeg> = vec![];
+
+        if let Some(plan) = &b.flight_plan {
+            if let Some(leg) = parse_flight(plan) {
+                legs.push(leg);
+            }
+        }
+
+        for dh in &b.deadhead_flight_plans {
+            if let Some(leg) = parse_flight(dh) {
+                legs.push(leg);
+            }
+        }
+
+        itineraries.push(Itinerary {
+            legs,
+            base_pricing: None,
+            currency_type: Some("usd".to_string()),
+        })
+    }
+    req_info!("(query_flight) found {} flight options.", itineraries.len());
+
+    //
+    // Get pricing for each itinerary
+    //
 
     // StatusUpdate message to customer?
     // e.g. Got your flights! Calculating prices...
-    for mut fp in &mut flights {
-        let pricing_query = PricingRequest {
-            service_type: ServiceType::Cargo as i32,
-            distance_km: fp.distance_m / 1000.0,
-        };
+    for mut itinerary in &mut itineraries {
+        let mut pricing_requests = PricingRequests { requests: vec![] };
+
+        for leg in &itinerary.legs {
+            let pricing_query = PricingRequest {
+                service_type: ServiceType::Cargo as i32,
+                distance_km: leg.distance_m / 1000.0,
+                weight_kg: payload.cargo_weight_kg,
+            };
+
+            pricing_requests.requests.push(pricing_query);
+        }
 
         // Make request, process response
-        let request = tonic::Request::new(pricing_query);
+        let request = tonic::Request::new(pricing_requests);
         let response = pricing_client.get_pricing(request).await;
-        match response {
-            Ok(r) => {
-                fp.base_pricing = Some(r.into_inner().price);
-                fp.currency_type = Some("usd".to_string());
-            }
-            Err(e) => {
-                let error_msg = "svc-pricing error.".to_string();
-                req_error!("(query_flight) {} {:?}", &error_msg, e);
-                req_error!("(query_flight) invalidating svc-pricing client.");
-                grpc_clients.pricing.invalidate().await;
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
-            }
+
+        let Ok(response) = response else {
+            let error_msg = "svc-pricing error.".to_string();
+            req_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
+            req_error!("(query_flight) invalidating svc-pricing client.");
+            grpc_clients.pricing.invalidate().await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
+        };
+
+        let response = response.into_inner();
+
+        for (price, mut leg) in response.prices.iter().zip(itinerary.legs.iter_mut()) {
+            leg.base_pricing = Some(*price);
+            leg.currency_type = Some("usd".to_string());
         }
+
+        itinerary.base_pricing = Some(response.prices.iter().sum());
     }
 
-    req_debug!("(query_flight) exit with {} flight options.", flights.len());
-    Ok(Json(flights))
+    req_debug!(
+        "(query_flight) exit with {} itineraries.",
+        itineraries.len()
+    );
+    Ok(Json(itineraries))
 }
 
 /// Confirm a Flight
