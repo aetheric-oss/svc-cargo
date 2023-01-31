@@ -1,3 +1,19 @@
+//! <center>
+//! <img src="https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png" style="height:250px" />
+//! </center>
+//! <div align="center">
+//!     <a href="https://github.com/Arrow-air/svc-cargo/releases">
+//!         <img src="https://img.shields.io/github/v/release/Arrow-air/svc-cargo?include_prereleases" alt="GitHub release (latest by date including pre-releases)">
+//!     </a>
+//!     <a href="https://github.com/Arrow-air/svc-cargo/tree/main">
+//!         <img src="https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=main" alt="Rust Checks">
+//!     </a>
+//!     <a href="https://discord.com/invite/arrow">
+//!         <img src="https://img.shields.io/discord/853833144037277726?style=plastic" alt="Arrow DAO Discord">
+//!     </a>
+//!     <br><br>
+//! </div>
+//!
 //! svc-cargo
 //! Processes flight requests from client applications
 
@@ -32,7 +48,8 @@ struct Cli {
     ),
     components(
         schemas(
-            rest_api::rest_types::FlightOption,
+            rest_api::rest_types::Itinerary,
+            rest_api::rest_types::FlightLeg,
             rest_api::rest_types::Vertiport,
             rest_api::rest_types::ConfirmStatus,
             rest_api::rest_types::VertiportsQuery,
