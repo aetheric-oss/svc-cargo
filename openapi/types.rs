@@ -58,9 +58,22 @@ pub struct VertiportsQuery {
     pub longitude: f32,
 }
 
-/// Flight Plan Option
+/// Itinerary
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct FlightOption {
+pub struct Itinerary {
+    /// Each leg of the itinerary
+    pub legs: Vec<FlightLeg>,
+
+    /// The currency type, e.g. USD, EUR
+    pub currency_type: Option<String>,
+
+    /// The cost of the trip for the customer
+    pub base_pricing: Option<f32>
+}
+
+/// Leg of a flight
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct FlightLeg {
     /// Flight Plan ID
     pub fp_id: String,
 
@@ -129,13 +142,15 @@ pub enum ConfirmStatus {
     #[schema(example = "Flight successfully confirmed.")]
     Success(String),
 
-    /// FlightOption already exists conflict.
+    /// Itinerary already confirmed.
     #[schema(example = "Could not confirm flight.")]
     Conflict(String),
-    /// FlightOption not found by id.
+
+    /// Itinerary not found by id.
     #[schema(example = "Provided flight plan ID doesn't match an existing flight.")]
     NotFound(String),
-    /// Unauthorized Attempt to Confirm Flight
+
+    /// Unauthorized Attempt to Confirm Itinerary
     #[schema(example = "Unauthorized confirmation by someone other than the customer.")]
     Unauthorized(String),
 
