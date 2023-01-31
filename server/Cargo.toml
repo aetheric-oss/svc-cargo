@@ -33,9 +33,9 @@ prost-build               = "0.11"
 prost-types               = "0.11"
 serde                     = "1.0"
 serde_json                = "1.0"
-svc-pricing-client-grpc   = { git = "https://github.com/Arrow-air/svc-pricing", tag = "v0.4.1-develop.2" }
-svc-scheduler-client-grpc = { git = "https://github.com/Arrow-air/svc-scheduler", tag = "v0.2.5-develop.5" }
-svc-storage-client-grpc   = { git = "https://github.com/Arrow-air/svc-storage", tag = "v0.9.0-develop.1" }
+svc-pricing-client-grpc   = { git = "https://github.com/Arrow-air/svc-pricing", tag = "v0.4.1-develop.5" }
+svc-scheduler-client-grpc = { git = "https://github.com/Arrow-air/svc-scheduler", tag = "v0.2.5-develop.8" }
+svc-storage-client-grpc   = { git = "https://github.com/Arrow-air/svc-storage", tag = "v0.9.0-develop.7" }
 tokio                     = { version = "1.20", features = ["full"] }
 tokio-util                = "0.7"
 tonic                     = "0.8"
