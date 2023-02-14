@@ -24,7 +24,7 @@ mod cargo_grpc {
     include!("grpc.rs");
 }
 
-use axum::{extract::Extension, handler::Handler, response::IntoResponse, routing, Router};
+use axum::{extract::Extension, routing, Router};
 use cargo_grpc::cargo_rpc_server::{CargoRpc, CargoRpcServer};
 use clap::Parser;
 use grpc_clients::GrpcClients;
@@ -43,8 +43,8 @@ struct Cli {
     paths(
         rest_api::query_flight,
         rest_api::query_vertiports,
-        rest_api::confirm_flight,
-        rest_api::cancel_flight
+        rest_api::confirm_itinerary,
+        rest_api::cancel_itinerary
     ),
     components(
         schemas(
@@ -53,9 +53,9 @@ struct Cli {
             rest_api::rest_types::Vertiport,
             rest_api::rest_types::ConfirmStatus,
             rest_api::rest_types::VertiportsQuery,
-            rest_api::rest_types::FlightCancel,
+            rest_api::rest_types::ItineraryCancel,
             rest_api::rest_types::FlightQuery,
-            rest_api::rest_types::FlightConfirm,
+            rest_api::rest_types::ItineraryConfirm,
             rest_api::rest_types::TimeWindow
         )
     ),
@@ -115,23 +115,6 @@ async fn grpc_server() {
         .unwrap();
 }
 
-/// Responds a NOT_FOUND status and error string
-///
-/// # Arguments
-///
-/// # Examples
-///
-/// ```
-/// let app = Router::new()
-///         .fallback(not_found.into_service());
-/// ```
-pub async fn not_found(uri: axum::http::Uri) -> impl IntoResponse {
-    (
-        axum::http::StatusCode::NOT_FOUND,
-        format!("No route {}", uri),
-    )
-}
-
 /// Tokio signal handler that will wait for a user to press CTRL+C.
 /// We use this in our hyper `Server` method `with_graceful_shutdown`.
 ///
@@ -161,10 +144,9 @@ pub async fn rest_server(grpc_clients: GrpcClients) {
         .unwrap_or(8000);
 
     let app = Router::new()
-        .fallback(not_found.into_service())
-        .route("/cargo/cancel", routing::delete(rest_api::cancel_flight))
+        .route("/cargo/cancel", routing::delete(rest_api::cancel_itinerary))
         .route("/cargo/query", routing::post(rest_api::query_flight))
-        .route("/cargo/confirm", routing::put(rest_api::confirm_flight))
+        .route("/cargo/confirm", routing::put(rest_api::confirm_itinerary))
         .route(
             "/cargo/vertiports",
             routing::post(rest_api::query_vertiports),
