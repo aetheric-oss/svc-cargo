@@ -4,6 +4,7 @@ use chrono::{Duration, Utc};
 use hyper::{Body, Client, Method, Request, Response};
 use hyper::{Error, StatusCode};
 use svc_cargo_client_rest::types::*;
+use uuid;
 
 fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (bool, String) {
     let mut ok = true;
@@ -61,9 +62,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // PUT /cargo/confirm
     {
-        let data = FlightConfirm {
+        let data = ItineraryConfirm {
             // Arbitrary UUID
-            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
+            id: uuid::Uuid::new_v4().to_string(),
+            user_id: uuid::Uuid::new_v4().to_string(),
         };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}/cargo/confirm", url);
@@ -83,9 +85,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // DELETE /cargo/cancel
     {
-        let data = FlightCancel {
+        let data = ItineraryCancel {
             // arbitrary UUID
-            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
+            id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
         let data_str = serde_json::to_string(&data).unwrap();
         let uri = format!("{}/cargo/cancel", url);
