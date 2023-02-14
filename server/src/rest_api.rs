@@ -4,24 +4,26 @@ pub mod rest_types {
 
 use axum::{extract::Extension, Json};
 use chrono::Utc;
-use hyper::{HeaderMap, StatusCode};
+use hyper::StatusCode;
 use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
 use uuid::Uuid;
 
 use crate::grpc_clients::GrpcClients;
+
+use svc_storage_client_grpc::AdvancedSearchFilter;
 
 use svc_pricing_client::pricing_grpc::{
     pricing_request::ServiceType, PricingRequest, PricingRequests,
 };
 
 use svc_scheduler_client_grpc::grpc::{
-    Id, QueryFlightPlan, QueryFlightPlanBundle, QueryFlightRequest,
+    ConfirmItineraryRequest, Id, Itinerary as SchedulerItinerary, QueryFlightPlan,
+    QueryFlightRequest,
 };
 
-use svc_storage_client_grpc::client::SearchFilter;
-
 pub use rest_types::{
-    FlightCancel, FlightConfirm, FlightLeg, FlightQuery, Itinerary, Vertiport, VertiportsQuery,
+    FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, Vertiport,
+    VertiportsQuery,
 };
 
 /// Writes an info! message to the app::req logger
@@ -89,7 +91,7 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
     };
 
     Some(FlightLeg {
-        fp_id: plan.id.clone(),
+        flight_plan_id: plan.id.clone(),
         vertiport_depart_id: plan.vertiport_depart_id.to_string(),
         vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
         timestamp_depart: time_depart,
@@ -114,29 +116,39 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
 )]
 pub async fn query_vertiports(
     Extension(mut grpc_clients): Extension<GrpcClients>,
-    Json(_payload): Json<VertiportsQuery>,
-) -> Result<Json<Vec<Vertiport>>, (StatusCode, String)> {
+    Json(payload): Json<VertiportsQuery>,
+) -> Result<Json<Vec<Vertiport>>, StatusCode> {
     req_debug!("(query_vertiports) entry.");
 
-    // Will provide Lat, Long
-    let request = tonic::Request::new(SearchFilter {
-        search_field: "".to_string(),
-        search_value: "".to_string(),
-        page_number: 1,
-        results_per_page: 50,
-    });
+    //
+    // 1 degree of latitude ~= 69 miles
+    // 1 degree of longitude ~= 55 miles
+    //
+    // TODO R3 This may be commanded by the GUI, if someone is scrolled out
+    //  far on the map the degree_range should increase
+    let degree_range: f32 = 2.0;
+    let filter = AdvancedSearchFilter::search_between(
+        "latitude".to_owned(),
+        (payload.latitude + degree_range).to_string(),
+        (payload.latitude - degree_range).to_string(),
+    )
+    .and_between(
+        "longitude".to_owned(),
+        (payload.longitude + degree_range).to_string(),
+        (payload.longitude - degree_range).to_string(),
+    );
+    let request = tonic::Request::new(filter);
 
     // Get Client
-    let client_option = grpc_clients.storage.get_client().await;
-    if client_option.is_none() {
+    let result = grpc_clients.storage.get_client().await;
+    let Some(mut client) = result else {
         let error_msg = "svc-storage unavailable.".to_string();
         req_error!("(query_vertiports) {}", &error_msg);
-        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
-    }
-    let mut client = client_option.unwrap();
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
 
     // Make request, process response
-    let response = client.get_all_with_filter(request).await;
+    let response = client.search(request).await;
     match response {
         Ok(r) => {
             let ret: Vec<Vertiport> = r
@@ -160,7 +172,7 @@ pub async fn query_vertiports(
         Err(e) => {
             let error_msg = "error response from svc-storage.".to_string();
             req_error!("(query_vertiports) {} {:?}", &error_msg, e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
@@ -183,7 +195,7 @@ pub async fn query_vertiports(
 pub async fn query_flight(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<FlightQuery>,
-) -> Result<Json<Vec<Itinerary>>, (StatusCode, String)> {
+) -> Result<Json<Vec<Itinerary>>, StatusCode> {
     req_debug!("(query_flight) entry.");
 
     //
@@ -195,20 +207,20 @@ pub async fn query_flight(
     if weight_g >= MAX_CARGO_WEIGHT_G {
         let error_msg = format!("request cargo weight exceeds {MAX_CARGO_WEIGHT_G}.");
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     // Check UUID validity
     if !is_uuid(&payload.vertiport_arrive_id) {
         let error_msg = "arrival port ID not UUID format.".to_string();
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     if !is_uuid(&payload.vertiport_depart_id) {
         let error_msg = "departure port ID not UUID format.".to_string();
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     let mut flight_query = QueryFlightRequest {
@@ -228,13 +240,13 @@ pub async fn query_flight(
         if window.timestamp_max <= current_time {
             let error_msg = "max arrival time is in the past.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err((StatusCode::BAD_REQUEST, error_msg));
+            return Err(StatusCode::BAD_REQUEST);
         }
 
         let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
             let error_msg = "unable to convert datetime to timestamp.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err((StatusCode::BAD_REQUEST, error_msg));
+            return Err(StatusCode::BAD_REQUEST);
         };
 
         flight_query.latest_arrival_time = Some(ts);
@@ -244,13 +256,13 @@ pub async fn query_flight(
         if window.timestamp_max <= current_time {
             let error_msg = "max depart time is in the past.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err((StatusCode::BAD_REQUEST, error_msg));
+            return Err(StatusCode::BAD_REQUEST);
         }
 
         let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
             let error_msg = "unable to convert datetime to timestamp.".to_string();
             req_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err((StatusCode::BAD_REQUEST, error_msg));
+            return Err(StatusCode::BAD_REQUEST);
         };
 
         flight_query.earliest_departure_time = Some(ts);
@@ -260,7 +272,7 @@ pub async fn query_flight(
     {
         let error_msg = "invalid time window.".to_string();
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     //
@@ -270,13 +282,13 @@ pub async fn query_flight(
     let Some(mut scheduler_client) = grpc_clients.scheduler.get_client().await else {
         let error_msg = "svc-scheduler unavailable.".to_string();
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
 
     let Some(mut pricing_client) = grpc_clients.pricing.get_client().await else {
         let error_msg = "svc-pricing unavailable.".to_string();
         req_error!("(query_flight) {}", &error_msg);
-        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
 
     let request = tonic::Request::new(flight_query);
@@ -286,38 +298,40 @@ pub async fn query_flight(
         req_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
         req_error!("(query_flight) invalidating svc-scheduler client.");
         grpc_clients.scheduler.invalidate().await;
-        return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
-    let bundles: Vec<QueryFlightPlanBundle> = response.into_inner().flights;
+
+    let itineraries: Vec<SchedulerItinerary> = response.into_inner().itineraries;
 
     //
     // Unpack flight itineraries
     //
 
     // List of lists of flights
-    let mut itineraries: Vec<Itinerary> = vec![];
-    for b in &bundles {
+    let mut offerings: Vec<Itinerary> = vec![];
+    for itinerary in &itineraries {
         let mut legs: Vec<FlightLeg> = vec![];
 
-        if let Some(plan) = &b.flight_plan {
+        if let Some(plan) = &itinerary.flight_plan {
             if let Some(leg) = parse_flight(plan) {
                 legs.push(leg);
             }
         }
 
-        for dh in &b.deadhead_flight_plans {
+        for dh in &itinerary.deadhead_flight_plans {
             if let Some(leg) = parse_flight(dh) {
                 legs.push(leg);
             }
         }
 
-        itineraries.push(Itinerary {
+        offerings.push(Itinerary {
+            id: Uuid::new_v4().to_string(), // TODO Update with actual itinerary
             legs,
             base_pricing: None,
             currency_type: Some("usd".to_string()),
         })
     }
-    req_info!("(query_flight) found {} flight options.", itineraries.len());
+    req_info!("(query_flight) found {} flight options.", offerings.len());
 
     //
     // Get pricing for each itinerary
@@ -325,7 +339,7 @@ pub async fn query_flight(
 
     // StatusUpdate message to customer?
     // e.g. Got your flights! Calculating prices...
-    for mut itinerary in &mut itineraries {
+    for mut itinerary in &mut offerings {
         let mut pricing_requests = PricingRequests { requests: vec![] };
 
         for leg in &itinerary.legs {
@@ -347,7 +361,7 @@ pub async fn query_flight(
             req_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
             req_error!("(query_flight) invalidating svc-pricing client.");
             grpc_clients.pricing.invalidate().await;
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg));
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
 
         let response = response.into_inner();
@@ -360,11 +374,8 @@ pub async fn query_flight(
         itinerary.base_pricing = Some(response.prices.iter().sum());
     }
 
-    req_debug!(
-        "(query_flight) exit with {} itineraries.",
-        itineraries.len()
-    );
-    Ok(Json(itineraries))
+    req_debug!("(query_flight) exit with {} itineraries.", offerings.len());
+    Ok(Json(offerings))
 }
 
 /// Confirm a Flight
@@ -372,7 +383,7 @@ pub async fn query_flight(
     put,
     path = "/cargo/confirm",
     tag = "svc-cargo",
-    request_body = FlightConfirm,
+    request_body = ItineraryConfirm,
     responses(
         (status = 200, description = "Flight Confirmed", body = String),
         (status = 400, description = "Request body is invalid format"),
@@ -380,47 +391,48 @@ pub async fn query_flight(
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
-pub async fn confirm_flight(
+pub async fn confirm_itinerary(
     Extension(mut grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<FlightConfirm>,
-    _headers: HeaderMap,
-) -> Result<String, (StatusCode, String)> {
-    req_debug!("(confirm_flight) entry.");
+    Json(payload): Json<ItineraryConfirm>,
+) -> Result<String, StatusCode> {
+    req_debug!("(confirm_itinerary) entry.");
 
-    if !is_uuid(&payload.fp_id) {
+    if !is_uuid(&payload.id) {
         let error_msg = "flight plan ID not in UUID format.".to_string();
-        req_error!("(confirm_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+        req_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     // Get Client
     let client_option = grpc_clients.scheduler.get_client().await;
-    if client_option.is_none() {
+    let Some(mut client) = client_option else {
         let error_msg = "svc-scheduler unavailable.".to_string();
-        req_error!("(confirm_flight) {}", &error_msg);
-        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
-    }
-    let mut client = client_option.unwrap();
+        req_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
 
     // Make request, process response
-    let request = tonic::Request::new(Id { id: payload.fp_id });
-    let response = client.confirm_flight(request).await;
+    let request = tonic::Request::new(ConfirmItineraryRequest {
+        id: payload.id,
+        user_id: payload.user_id,
+    });
+    let response = client.confirm_itinerary(request).await;
     match response {
         Ok(r) => {
             let ret = r.into_inner();
             if ret.confirmed {
-                req_info!("(confirm_flight) svc-scheduler confirm success.");
+                req_info!("(confirm_itinerary) svc-scheduler confirm success.");
                 Ok(ret.id)
             } else {
                 let error_msg = "svc-scheduler confirm fail.".to_string();
-                req_error!("(confirm_flight) {}", &error_msg);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
+                req_error!("(confirm_itinerary) {}", &error_msg);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         }
         Err(e) => {
             let error_msg = "svc-scheduler error.".to_string();
-            req_error!("(confirm_flight) {} {:?}", &error_msg, e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
+            req_error!("(confirm_itinerary) {} {:?}", &error_msg, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
@@ -436,48 +448,46 @@ pub async fn confirm_flight(
         (status = 500, description = "svc-scheduler returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     ),
-    request_body = FlightCancel
+    request_body = ItineraryCancel
 )]
-pub async fn cancel_flight(
+pub async fn cancel_itinerary(
     Extension(mut grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<FlightCancel>,
-    _headers: HeaderMap,
-) -> Result<String, (StatusCode, String)> {
-    req_debug!("(cancel_flight) entry.");
-    if !is_uuid(&payload.fp_id) {
-        let error_msg = "flight plan ID not in UUID format.".to_string();
-        req_error!("(cancel_flight) {}", &error_msg);
-        return Err((StatusCode::BAD_REQUEST, error_msg));
+    Json(payload): Json<ItineraryCancel>,
+) -> Result<String, StatusCode> {
+    req_debug!("(cancel_itinerary) entry.");
+    if !is_uuid(&payload.id) {
+        let error_msg = "itinerary ID not in UUID format.".to_string();
+        req_error!("(cancel_itinerary) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
     }
 
     // Get Client
     let client_option = grpc_clients.scheduler.get_client().await;
-    if client_option.is_none() {
+    let Some(mut client) = client_option else {
         let error_msg = "svc-scheduler unavailable.".to_string();
-        req_error!("(cancel_flight) {}", &error_msg);
-        return Err((StatusCode::SERVICE_UNAVAILABLE, error_msg));
-    }
-    let mut client = client_option.unwrap();
+        req_error!("(cancel_itinerary) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
 
     // Make request, process response
-    let request = tonic::Request::new(Id { id: payload.fp_id });
-    let response = client.cancel_flight(request).await;
+    let request = tonic::Request::new(Id { id: payload.id });
+    let response = client.cancel_itinerary(request).await;
     match response {
         Ok(r) => {
             let ret = r.into_inner();
             if ret.cancelled {
-                req_info!("(cancel_flight) svc-scheduler cancel success.");
+                req_info!("(cancel_itinerary) svc-scheduler cancel success.");
                 Ok(ret.id)
             } else {
                 let error_msg = "svc-scheduler cancel fail.".to_string();
-                req_error!("(cancel_flight) {} {}", &error_msg, ret.reason);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
+                req_error!("(cancel_itinerary) {} {}", &error_msg, ret.reason);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
             }
         }
         Err(e) => {
             let error_msg = "svc-scheduler request fail.".to_string();
-            req_error!("(cancel_flight) {} {:?}", &error_msg, e);
-            Err((StatusCode::INTERNAL_SERVER_ERROR, error_msg))
+            req_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
@@ -512,12 +522,13 @@ mod tests {
             flight_priority: 0,
             estimated_distance: 1000,
         };
-        let ret = parse_flight(&fp);
-        assert!(ret.is_some());
-        let opt = ret.unwrap();
-        assert_eq!(fp.id, opt.fp_id);
-        assert_eq!(fp.vertiport_depart_id, opt.vertiport_depart_id);
-        assert_eq!(fp.vertiport_arrive_id, opt.vertiport_arrive_id);
+
+        let Some(flight_plan) = parse_flight(&fp) else {
+            panic!();
+        };
+        assert_eq!(fp.id, flight_plan.flight_plan_id);
+        assert_eq!(fp.vertiport_depart_id, flight_plan.vertiport_depart_id);
+        assert_eq!(fp.vertiport_arrive_id, flight_plan.vertiport_arrive_id);
 
         // Bad time arguments
         {

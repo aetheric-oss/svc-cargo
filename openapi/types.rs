@@ -35,15 +35,13 @@ pub struct TimeWindow {
     pub timestamp_max: DateTime<Utc>,
 }
 
-/// Request Body Information to Cancel a Flight
+/// Request body information to cancel an itinerary
 #[derive(Debug, Clone)]
 #[derive(Deserialize, Serialize)]
 #[derive(ToSchema)]
-pub struct FlightCancel {
-
-    /// Flight Plan ID to Cancel
-    pub fp_id: String,
-    // TODO optional reason
+pub struct ItineraryCancel {
+    /// Itinerary UUID to Cancel
+    pub id: String,
 }
 
 /// Request Body Information for Region Query
@@ -61,6 +59,9 @@ pub struct VertiportsQuery {
 /// Itinerary
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Itinerary {
+    /// The UUID of the itinerary
+    pub id: String,
+
     /// Each leg of the itinerary
     pub legs: Vec<FlightLeg>,
 
@@ -75,7 +76,7 @@ pub struct Itinerary {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct FlightLeg {
     /// Flight Plan ID
-    pub fp_id: String,
+    pub flight_plan_id: String,
 
     /// Departure Vertiport ID
     pub vertiport_depart_id: String,
@@ -100,15 +101,18 @@ pub struct FlightLeg {
 }
 
 
-/// Customer Flight Confirm Option
+/// Customer Itinerary Confirm Option
 #[derive(Debug, Clone)]
 #[derive(Serialize, Deserialize)]
 #[derive(ToSchema)]
-pub struct FlightConfirm {
+pub struct ItineraryConfirm {
+    /// Itinerary UUID
+    pub id: String,
 
-    /// Flight Plan ID
-    pub fp_id: String
+    /// User ID
+    pub user_id: String
 }
+
 /// Vertiport Information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Vertiport {
@@ -135,19 +139,19 @@ pub struct Vertiport {
 //     description_arrive: HashMap<String, String>
 // }
 
-/// Confirm Flight Operation Status
+/// Confirm itinerary Operation Status
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub enum ConfirmStatus {
-    /// Successful confirmation of flight
-    #[schema(example = "Flight successfully confirmed.")]
+    /// Successful confirmation of itinerary
+    #[schema(example = "Itinerary successfully confirmed.")]
     Success(String),
 
     /// Itinerary already confirmed.
-    #[schema(example = "Could not confirm flight.")]
+    #[schema(example = "Could not confirm itinerary.")]
     Conflict(String),
 
     /// Itinerary not found by id.
-    #[schema(example = "Provided flight plan ID doesn't match an existing flight.")]
+    #[schema(example = "Provided itinerary ID doesn't match an existing itinerary.")]
     NotFound(String),
 
     /// Unauthorized Attempt to Confirm Itinerary
