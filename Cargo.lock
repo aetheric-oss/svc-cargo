@@ -1688,7 +1688,7 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "svc-cargo"
-version = "0.2.0"
+version = "0.8.0-develop.9"
 dependencies = [
  "axum",
  "cargo-husky",
@@ -1721,7 +1721,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.2.0"
+version = "0.8.0-develop.9"
 dependencies = [
  "prost",
  "prost-types",
@@ -1731,7 +1731,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-rest"
-version = "0.1.0"
+version = "0.8.0-develop.9"
 dependencies = [
  "chrono",
  "hyper",
