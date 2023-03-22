@@ -1731,7 +1731,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-rest"
-version = "0.8.0-develop.9"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "hyper",
