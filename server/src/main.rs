@@ -144,6 +144,7 @@ pub async fn rest_server(grpc_clients: GrpcClients) {
         .unwrap_or(8000);
 
     let app = Router::new()
+        .route("/health", routing::get(rest_api::health_check))
         .route("/cargo/cancel", routing::delete(rest_api::cancel_itinerary))
         .route("/cargo/query", routing::post(rest_api::query_flight))
         .route("/cargo/confirm", routing::put(rest_api::confirm_itinerary))
