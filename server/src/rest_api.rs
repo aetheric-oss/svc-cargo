@@ -102,6 +102,55 @@ fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
     })
 }
 
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "svc-cargo",
+    responses(
+        (status = 200, description = "Service is healthy, all dependencies running."),
+        (status = 503, description = "Service is unhealthy, one or more dependencies unavailable.")
+    )
+)]
+pub async fn health_check(
+    Extension(mut grpc_clients): Extension<GrpcClients>,
+) -> Result<(), StatusCode> {
+    req_debug!("(health_check) entry.");
+
+    let mut ok = true;
+
+    let result = grpc_clients.storage.get_client().await;
+    if result.is_none() {
+        let error_msg = "svc-storage unavailable.".to_string();
+        req_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    let result = grpc_clients.pricing.get_client().await;
+    if result.is_none() {
+        let error_msg = "svc-pricing unavailable.".to_string();
+        req_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    let result = grpc_clients.scheduler.get_client().await;
+    if result.is_none() {
+        let error_msg = "svc-scheduler unavailable.".to_string();
+        req_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    match ok {
+        true => {
+            req_info!("(health_check) healthy, all dependencies running.");
+            Ok(())
+        }
+        false => {
+            req_error!("(health_check) unhealthy, 1+ dependencies down.");
+            Err(StatusCode::SERVICE_UNAVAILABLE)
+        }
+    }
+}
+
 /// Get Regional Vertiports
 #[utoipa::path(
     post,
