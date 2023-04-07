@@ -20,7 +20,7 @@ Document | Description
 --- | ---
 | [High-Level Concept of Operations (CONOPS)](https://github.com/Arrow-air/se-services/blob/develop/docs/conops.md) | Overview of Arrow microservices.                             |
 | [High-Level Interface Control Document (ICD)](https://github.com/Arrow-air/se-services/blob/develop/docs/icd.md)  | Interfaces and frameworks common to all Arrow microservices. |
-[Requirements - `svc-cargo`](https://docs.google.com/spreadsheets/d/1OliSp9BDvMuVvGmSRh1z_Z58QtjlSknLxGVdVZs2l7A/edit#gid=0) | Requirements for this service.
+[Requirements - `svc-cargo`](https://nocodb.arrowair.com/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements for this service.
 [Software Design Document (SDD)](./sdd.md) | Implementation description of this service.
 
 ## Frameworks
@@ -57,7 +57,7 @@ See the High-Level Services ICD.
 
 ### Files
 
-These interfaces are defined in a protocol buffer file, [`svc-cargo-grpc.proto`](../proto/svc-cargo-grpc.proto).
+These interfaces are defined in a protocol buffer file, [`grpc.proto`](../proto/grpc.proto).
 
 ### Integrated Authentication & Encryption
 
