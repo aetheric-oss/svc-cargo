@@ -3,19 +3,18 @@ syntax = "proto3";
 package grpc;
 
 // Heartbeat
-service CargoRpc {
+service RpcService {
     // Common Interfaces
-    rpc isReady (QueryIsReady) returns (ReadyResponse);
+    rpc isReady (ReadyRequest) returns (ReadyResponse);
 }
 
-// Are you Ready?
-message QueryIsReady {
+// Checks if this service is ready
+message ReadyRequest {
     // No arguments
 }
 
-// I'm Ready
+// Indicates if this service is ready
 message ReadyResponse {
-
     // True if ready
     bool ready = 1;
 }

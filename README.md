@@ -2,6 +2,7 @@
 
 # `svc-cargo`
 
+![GitHub stable release (latest by date)](https://img.shields.io/github/v/release/Arrow-air/svc-cargo?sort=semver&color=green)
 ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Arrow-air/svc-cargo?include_prereleases)
 ![Sanity Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=develop)
 ![Rust
@@ -11,6 +12,8 @@ Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/bad
 Discord](https://img.shields.io/discord/853833144037277726?style=plastic)
 
 ## :telescope: Overview
+
+This service hosts a public REST interface for external applications to make cargo shipping requests to the network.
 
 Directory:
 - `server/src`: Server Source Code and Unit Tests
@@ -98,7 +101,7 @@ The following documents are relevant to this service:
 - [Concept of Operations](./docs/conops.md)
 - [Software Design Document (SDD)](./docs/sdd.md)
 - [Interface Control Document (ICD)](./docs/icd.md)
-- [User Stories](https://docs.google.com/spreadsheets/u/1/d/1Ad238NAEj6QUzgsjPTRRFJy6NiQVQt2e7affwVVDAFo/edit#gid=1071403191)
+- [Requirements](https://nocodb.arrowair.com/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3)
 
 ## :busts_in_silhouette: Arrow DAO
 Learn more about us:
