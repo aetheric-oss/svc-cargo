@@ -40,7 +40,7 @@ uuid         = { version = "1.2", features = ["v4"] }
 
 [dependencies.svc-scheduler-client-grpc]
 git = "https://github.com/Arrow-air/svc-scheduler"
-tag = "v0.2.5-develop.13"
+tag = "v0.2.5-develop.16"
 
 [dependencies.svc-pricing-client-grpc]
 git = "https://github.com/Arrow-air/svc-pricing"

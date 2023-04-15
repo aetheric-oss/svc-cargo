@@ -1747,8 +1747,8 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler-client-grpc"
-version = "0.2.5-develop.13"
-source = "git+https://github.com/Arrow-air/svc-scheduler?tag=v0.2.5-develop.13#7b407b59433cf0f4cfa1cf14d2337ff069d6ecf5"
+version = "0.2.5-develop.16"
+source = "git+https://github.com/Arrow-air/svc-scheduler?tag=v0.2.5-develop.16#ca9f6253247cf3ec0afb38a9fadc1f51ef7af2bf"
 dependencies = [
  "chrono",
  "chrono-tz",

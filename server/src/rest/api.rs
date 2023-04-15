@@ -152,7 +152,7 @@ pub async fn query_vertiports(
     // 1 degree of latitude ~= 69 miles
     // 1 degree of longitude ~= 55 miles
     //
-    // TODO R3 This may be commanded by the GUI, if someone is scrolled out
+    // TODO(R3) This may be commanded by the GUI, if someone is scrolled out
     //  far on the map the degree_range should increase
     let degree_range: f32 = 2.0;
     let filter = AdvancedSearchFilter::search_between(
@@ -199,7 +199,7 @@ pub async fn query_vertiports(
         }
         Err(e) => {
             let error_msg = "error response from svc-storage.".to_string();
-            rest_error!("(query_vertiports) {} {:?}", &error_msg, e);
+            rest_error!("(query_vertiports) {} {:?}.", &error_msg, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -353,7 +353,7 @@ pub async fn query_flight(
         }
 
         offerings.push(Itinerary {
-            id: Uuid::new_v4().to_string(), // TODO Update with actual itinerary
+            id: itinerary.id.clone(),
             legs,
             base_pricing: None,
             currency_type: Some("usd".to_string()),

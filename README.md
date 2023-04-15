@@ -7,7 +7,7 @@
 ![Sanity Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=develop)
 ![Rust
 Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=develop)
-![Python Flake8](https://github.com/arrow-air/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=develop)
+![Python PEP8](https://github.com/arrow-air/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=develop)
 ![Arrow DAO
 Discord](https://img.shields.io/discord/853833144037277726?style=plastic)
 

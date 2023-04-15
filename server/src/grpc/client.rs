@@ -1,5 +1,5 @@
 pub use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
-pub use svc_scheduler_client_grpc::grpc::scheduler_rpc_client::SchedulerRpcClient;
+pub use svc_scheduler_client_grpc::grpc::rpc_service_client::RpcServiceClient as SchedulerClient;
 pub use svc_storage_client_grpc::VertiportClient;
 
 use futures::lock::Mutex;
@@ -8,7 +8,7 @@ pub use tonic::transport::Channel;
 
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
-    pub scheduler: GrpcClient<SchedulerRpcClient<Channel>>,
+    pub scheduler: GrpcClient<SchedulerClient<Channel>>,
     pub storage: GrpcClient<VertiportClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
@@ -79,14 +79,14 @@ macro_rules! grpc_client {
     };
 }
 
-grpc_client!(SchedulerRpcClient, "scheduler");
+grpc_client!(SchedulerClient, "scheduler");
 grpc_client!(VertiportClient, "storage");
 grpc_client!(PricingClient, "pricing");
 
 impl GrpcClients {
     pub fn new(config: crate::config::Config) -> Self {
         GrpcClients {
-            scheduler: GrpcClient::<SchedulerRpcClient<Channel>>::new(
+            scheduler: GrpcClient::<SchedulerClient<Channel>>::new(
                 &config.scheduler_host_grpc,
                 config.scheduler_port_grpc,
             ),
