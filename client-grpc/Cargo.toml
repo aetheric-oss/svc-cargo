@@ -1,9 +1,15 @@
 [package]
-edition = "2021"
-name    = "svc-cargo-client-grpc"
-version = "0.2.0"
+description = "Arrow Cargo service GRPC client"
+name        = "svc-cargo-client-grpc"
+version     = "0.8.1-develop.0"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license-file.workspace = true
+repository.workspace   = true
 
 [dependencies]
 prost       = "0.11"

@@ -1,9 +1,10 @@
 //! Example communication with this service
 
+use chrono::{Duration, Utc};
 use hyper::{Body, Client, Method, Request, Response};
 use hyper::{Error, StatusCode};
-use std::time::{Duration, SystemTime};
 use svc_cargo_client_rest::types::*;
+use uuid;
 
 fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (bool, String) {
     let mut ok = true;
@@ -43,14 +44,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             latitude: 32.7262,
             longitude: 117.1544,
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/vertiports", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -61,18 +68,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // PUT /cargo/confirm
     {
-        let data = FlightConfirm {
+        let data = ItineraryConfirm {
             // Arbitrary UUID
-            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
+            id: uuid::Uuid::new_v4().to_string(),
+            user_id: uuid::Uuid::new_v4().to_string(),
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/confirm", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::PUT)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -83,18 +97,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // DELETE /cargo/cancel
     {
-        let data = FlightCancel {
+        let data = ItineraryCancel {
             // arbitrary UUID
-            fp_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
+            id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/cancel", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::DELETE)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -105,25 +125,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // POST /cargo/query
     {
-        let depart_timestamp_min = SystemTime::now() + Duration::from_secs(60);
+        let depart_timestamp_min = Utc::now() + Duration::seconds(60);
         let data = FlightQuery {
             // Arbitrary UUIDs
             vertiport_depart_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
             vertiport_arrive_id: "59e51ad1-d57d-4d2c-bc2d-e2387367d17f".to_string(),
-            timestamp_depart_min: Some(depart_timestamp_min),
-            timestamp_depart_max: Some(depart_timestamp_min + Duration::from_secs(360)),
-            timestamp_arrive_min: None,
-            timestamp_arrive_max: None,
+            time_depart_window: Some(TimeWindow {
+                timestamp_min: depart_timestamp_min,
+                timestamp_max: depart_timestamp_min + Duration::seconds(360),
+            }),
+            time_arrive_window: None,
             cargo_weight_kg: 1.0,
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/query", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);
