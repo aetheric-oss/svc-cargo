@@ -43,15 +43,7 @@ See the High-Level Services ICD.
 
 ### Endpoints
 
-:construction: This API will move to a more readable format.
-
-| Endpoint | Type | Arguments | Description |
-| ---- | --- | ---- | ---- |
-| `/cargo/query` | POST | vertiport_depart_id<br>vertiport_arrive_id<br>timestamp_depart_min<br>timestamp_depart_max<br>timestamp_arrive_min<br>timestamp_arrive_max<br>cargo_weight_kg | Queries for a flight with the given characteristics
-| `/cargo/confirm` | PUT | flight_plan_id | Customer confirmation of a possible flight plan
-| `/cargo/cancel` | DELETE | flight_plan_id | Cancel a flight plan
-| `/cargo/vertiports` | POST | latitude, longitude | Get vertiports for a user
-
+See our [public documentation](https://www.arrowair.com/docs/documentation/services/api/rest/develop#tag/svc-cargo) for a full API.
 
 ## GRPC
 

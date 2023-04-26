@@ -44,14 +44,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             latitude: 32.7262,
             longitude: 117.1544,
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/vertiports", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -67,14 +73,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             id: uuid::Uuid::new_v4().to_string(),
             user_id: uuid::Uuid::new_v4().to_string(),
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/confirm", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::PUT)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -89,14 +101,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // arbitrary UUID
             id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/cancel", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::DELETE)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::OK);
@@ -119,14 +137,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             time_arrive_window: None,
             cargo_weight_kg: 1.0,
         };
-        let data_str = serde_json::to_string(&data).unwrap();
+        let Ok(data_str) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
         let uri = format!("{}/cargo/query", url);
-        let req = Request::builder()
+        let Ok(req) = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
             .header("content-type", "application/json")
             .body(Body::from(data_str))
-            .unwrap();
+        else {
+            panic!("Failed to build request");
+        };
 
         let resp = client.request(req).await;
         let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);

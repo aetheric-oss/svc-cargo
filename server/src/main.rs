@@ -38,7 +38,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("(svc-cargo) server startup.");
     dotenv().ok();
 
-    let config = config::Config::from_env().unwrap_or_default();
+    // Expect environment variables
+    let config = match config::Config::from_env() {
+        Ok(c) => c,
+        Err(e) => {
+            error!("(config) could not parse config. {}", e);
+            panic!();
+        }
+    };
 
     // Allow option to only generate the spec file to a given location
     let args = Cli::parse();

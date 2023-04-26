@@ -22,11 +22,15 @@ pub async fn server(config: crate::config::Config) {
         .route("/cargo/vertiports", routing::post(api::query_vertiports))
         .layer(Extension(grpc_clients)); // Extension layer must be last
 
-    let address = format!("[::]:{rest_port}").parse().unwrap();
-    rest_info!("(rest) hosted at {:?}", address);
-    axum::Server::bind(&address)
+    let address = format!("[::]:{rest_port}");
+    let Ok(address) = address.parse() else {
+        rest_error!("(rest server) failed to parse address: {}", address);
+        return;
+    };
+
+    rest_info!("(rest server) hosted at {:?}", address);
+    let _ = axum::Server::bind(&address)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal("rest"))
-        .await
-        .unwrap();
+        .await;
 }

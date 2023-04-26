@@ -17,10 +17,6 @@ pub struct ServiceImpl {}
 #[tonic::async_trait]
 impl RpcService for ServiceImpl {
     /// Replies true if this server is ready to serve others.
-    /// # Arguments
-    /// * `request` - the query object with no arguments
-    /// # Returns
-    /// * `ReadyResponse` - Returns true
     async fn is_ready(
         &self,
         _request: tonic::Request<grpc_server::ReadyRequest>,
@@ -38,18 +34,22 @@ impl RpcService for ServiceImpl {
 pub async fn server(config: crate::config::Config) {
     // GRPC Server
     let grpc_port = config.docker_port_grpc;
-    let addr = format!("[::]:{grpc_port}").parse().unwrap();
+    let addr = format!("[::]:{grpc_port}");
+    let Ok(addr) = addr.parse() else {
+        grpc_error!("(grpc server) failed to parse address: {}", addr);
+        return;
+    };
+
     let imp = ServiceImpl::default();
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
     health_reporter
         .set_serving::<RpcServiceServer<ServiceImpl>>()
         .await;
 
-    grpc_info!("(grpc) hosted at {}", addr);
-    tonic::transport::Server::builder()
+    grpc_info!("(grpc server) hosted at {}", addr);
+    let _ = tonic::transport::Server::builder()
         .add_service(health_service)
         .add_service(RpcServiceServer::new(imp))
         .serve_with_shutdown(addr, shutdown_signal("grpc"))
-        .await
-        .unwrap();
+        .await;
 }
