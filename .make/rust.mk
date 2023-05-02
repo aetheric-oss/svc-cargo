@@ -62,8 +62,10 @@ rust-docker-pull:
 # Rust / cargo targets
 check-cargo-registry:
 	if [ ! -d "$(SOURCE_PATH)/.cargo/registry" ]; then mkdir -p "$(SOURCE_PATH)/.cargo/registry" ; fi
+check-logs-dir:
+	if [ ! -d "$(SOURCE_PATH)/logs" ]; then mkdir -p "$(SOURCE_PATH)/logs" ; fi
 
-.SILENT: check-cargo-registry rust-docker-pull
+.SILENT: check-cargo-registry check-logs-dir rust-docker-pull
 
 rust-build: check-cargo-registry rust-docker-pull
 	@echo "$(CYAN)Running cargo build...$(SGR0)"
@@ -94,7 +96,7 @@ rust-test: check-cargo-registry rust-docker-pull
 	@$(call cargo_run,test,--all)
 
 rust-example-%: EXAMPLE_TARGET=$*
-rust-example-%: check-cargo-registry rust-docker-pull
+rust-example-%: check-cargo-registry check-logs-dir rust-docker-pull
 	@docker compose run \
 		--user `id -u`:`id -g` \
 		--rm \
@@ -134,7 +136,7 @@ rust-validate-openapi: rust-openapi
 		jeanberu/swagger-cli \
 		swagger-cli validate /out/$(PACKAGE_NAME)-openapi.json
 
-rust-grpc-api: check-cargo-registry rust-docker-pull
+rust-grpc-api:
 	@echo "$(CYAN)Generating GRPC documentation...$(SGR0)"
 	mkdir -p $(OUTPUTS_PATH)
 	@docker run \
@@ -151,7 +153,7 @@ rust-coverage: check-cargo-registry rust-docker-pull
 	@mkdir -p coverage/
 	@$(call cargo_run,tarpaulin,\
 		--workspace -l --include-tests --tests --no-fail-fast \
-		--all-features --out Lcov \
+		--all-features --skip-clean -t 600 --out Lcov \
 		--output-dir coverage/)
 	@sed -e "s/\/usr\/src\/app\///g" -i coverage/lcov.info
 
