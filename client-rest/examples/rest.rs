@@ -30,12 +30,52 @@ fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("NOTE: Ensure the server is running, or this example will fail.");
 
+    let rate_limit = std::env::var("REQUEST_LIMIT_PER_SECOND")
+        .unwrap_or_else(|_| "2".to_string())
+        .parse::<u64>()
+        .unwrap_or(2);
+
     let (host, port) = get_endpoint_from_env("SERVER_HOSTNAME", "SERVER_PORT_REST");
     let url = format!("http://{host}:{port}");
     let mut ok = true;
     let client = Client::builder()
         .pool_idle_timeout(std::time::Duration::from_secs(10))
         .build_http();
+
+    // Too many requests
+    {
+        let data = VertiportsQuery {
+            latitude: 52.37488619450752,
+            longitude: 4.916048576268328,
+        };
+
+        let Ok(data) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
+        let uri = format!("{}/cargo/vertiports", url);
+
+        for x in 0..=rate_limit {
+            let Ok(request) = Request::builder()
+                .method(Method::POST)
+                .uri(uri.clone())
+                .header("content-type", "application/json")
+                .body(Body::from(data.clone()))
+            else {
+                panic!("Failed to build request");
+            };
+            if x >= rate_limit {
+                let resp: Result<Response<Body>, Error> = client.request(request).await;
+                let (success, result_str) = evaluate(resp, StatusCode::TOO_MANY_REQUESTS);
+                ok &= success;
+                println!("{}: {}", uri, result_str);
+            } else {
+                let _ = client.request(request).await;
+            }
+        }
+    }
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     // POST /cargo/vertiports
     {
@@ -64,6 +104,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{}: {}", uri, result_str);
     }
+
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     // POST /cargo/request
     {
@@ -101,6 +144,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}: {}", uri, result_str);
     }
 
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
     // PUT /cargo/confirm
     {
         let data = ItineraryConfirm {
@@ -130,6 +176,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}: {}", uri, result_str);
     }
 
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
     // DELETE /cargo/cancel
     {
         let data = ItineraryCancel {
@@ -157,6 +206,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{}: {}", uri, result_str);
     }
+
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     // PUT /cargo/scan
     {
@@ -187,6 +239,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{}: {}", uri, result_str);
     }
+
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     // GET /cargo/flights
     {
@@ -219,6 +274,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("{}: {}", uri, result_str);
     }
+
+    // Avoid too many requests
+    std::thread::sleep(std::time::Duration::from_secs(1));
 
     if ok {
         println!("\u{1F9c1} All endpoints responded!");

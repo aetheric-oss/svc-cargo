@@ -25,8 +25,7 @@ mod rest_types {
 }
 
 use clap::Parser;
-use dotenv::dotenv;
-use log::{error, info};
+use log::info;
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -38,14 +37,13 @@ struct Cli {
 #[tokio::main]
 #[cfg(not(tarpaulin_include))]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    info!("(svc-cargo) server startup.");
-    dotenv().ok();
+    println!("(svc-cargo) server startup.");
 
     // Expect environment variables
     let config = match config::Config::from_env() {
         Ok(c) => c,
         Err(e) => {
-            error!("(config) could not parse config. {}", e);
+            println!("(config) could not parse config. {}", e);
             panic!();
         }
     };
@@ -59,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start Logger
     let log_cfg: &str = config.log_config.as_str();
     if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
-        error!("(logger) could not parse {}. {}", log_cfg, e);
+        println!("(logger) could not parse {}. {}", log_cfg, e);
         panic!();
     }
 

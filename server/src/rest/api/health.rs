@@ -25,6 +25,12 @@ pub async fn health_check(
         ok = false;
     };
 
+    if grpc_clients.storage.vertipad.get_client().await.is_err() {
+        let error_msg = "svc-storage vertipad client unavailable.".to_string();
+        rest_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
     if grpc_clients.storage.parcel.get_client().await.is_err() {
         let error_msg = "svc-storage parcel client unavailable.".to_string();
         rest_error!("(health_check) {}", &error_msg);
@@ -33,6 +39,18 @@ pub async fn health_check(
 
     if grpc_clients.storage.parcel_scan.get_client().await.is_err() {
         let error_msg = "svc-storage parcel scan client unavailable.".to_string();
+        rest_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    if grpc_clients.storage.flight_plan.get_client().await.is_err() {
+        let error_msg = "svc-storage flight_plan client unavailable.".to_string();
+        rest_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    if grpc_clients.storage.vehicle.get_client().await.is_err() {
+        let error_msg = "svc-storage vehicle client unavailable.".to_string();
         rest_error!("(health_check) {}", &error_msg);
         ok = false;
     };

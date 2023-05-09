@@ -28,6 +28,8 @@ pub struct Config {
     pub scheduler_host_grpc: String,
     /// path to log configuration YAML file
     pub log_config: String,
+    /// Rate limit - requests per second
+    pub request_limit_per_second: u8,
 }
 
 impl Config {
