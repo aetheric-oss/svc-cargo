@@ -22,7 +22,7 @@ use svc_scheduler_client_grpc::grpc::{
 };
 
 pub use rest_types::{
-    FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, Vertiport,
+    FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, ParcelScan, Vertiport,
     VertiportsQuery,
 };
 
@@ -97,7 +97,7 @@ pub async fn health_check(
 
     let mut ok = true;
 
-    let result = grpc_clients.storage.get_client().await;
+    let result = grpc_clients.vertiport_storage.get_client().await;
     if result.is_none() {
         let error_msg = "svc-storage unavailable.".to_string();
         rest_error!("(health_check) {}", &error_msg);
@@ -168,7 +168,7 @@ pub async fn query_vertiports(
     let request = tonic::Request::new(filter);
 
     // Get Client
-    let result = grpc_clients.storage.get_client().await;
+    let result = grpc_clients.vertiport_storage.get_client().await;
     let Some(mut client) = result else {
         let error_msg = "svc-storage unavailable.".to_string();
         rest_error!("(query_vertiports) {}", &error_msg);
@@ -518,6 +518,78 @@ pub async fn cancel_itinerary(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+/// Confirm a Flight
+#[utoipa::path(
+    put,
+    path = "/cargo/scan",
+    tag = "svc-cargo",
+    request_body = ParcelScan,
+    responses(
+        (status = 200, description = "Scan succeeded", body = String),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 500, description = "svc-storage returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
+    )
+)]
+pub async fn scan_parcel(
+    Extension(mut _grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<ParcelScan>,
+) -> Result<String, StatusCode> {
+    rest_debug!("(scan_parcel) entry.");
+
+    if !is_uuid(&payload.parcel_id) {
+        let error_msg = "parcel ID not in UUID format.".to_string();
+        rest_error!("(scan_parcel) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if !is_uuid(&payload.scanner_id) {
+        let error_msg = "scanner ID not in UUID format.".to_string();
+        rest_error!("(scan_parcel) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    // TODO(R3) - Uncomment when interface exists with svc-storage
+
+    // Get Client
+    // let client_option = grpc_clients.parcel_storage.get_client().await;
+    // let Some(mut client) = client_option else {
+    //     let error_msg = "svc-storage unavailable.".to_string();
+    //     rest_error!("(scan_parcel) {}", &error_msg);
+    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
+    // };
+
+    // // Make request, process response
+    // let request = tonic::Request::new(ParcelScanRequest {
+    //     scanner_id: payload.id,
+    //     parcel_id: payload.user_id,
+    //     latitude: payload.latitude,
+    //     longitude: payload.longitude
+    // });
+    //
+    // let response = client.scan_parcel(request).await;
+    // match response {
+    //     Ok(r) => {
+    //         let ret = r.into_inner();
+    //         if ret.confirmed {
+    //             rest_info!("(scan_parcel) svc-storage success.");
+    //             Ok(ret.id)
+    //         } else {
+    //             let error_msg = "svc-storage failure.".to_string();
+    //             rest_error!("(scan_parcel) {}", &error_msg);
+    //             Err(StatusCode::INTERNAL_SERVER_ERROR)
+    //         }
+    //     }
+    //     Err(e) => {
+    //         let error_msg = "svc-storage error.".to_string();
+    //         rest_error!("(scan_parcel) {} {:?}", &error_msg, e);
+    //         Err(StatusCode::INTERNAL_SERVER_ERROR)
+    //     }
+    // }
+
+    Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 #[cfg(test)]
