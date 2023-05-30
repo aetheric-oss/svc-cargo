@@ -161,3 +161,19 @@ pub enum ConfirmStatus {
     /// Unavailable Service
     Unavailable,
 }
+
+/// Vertiport Information
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct ParcelScan {
+    /// The unique ID (UUID) of the scanner device
+    pub scanner_id: String,
+    
+    /// The unique ID (UUID) of the parcel
+    pub parcel_id: String,
+
+    /// The latitude (float value) of the scan location
+    pub latitude: f64,
+
+    /// The longitude (float value) of the scan location
+    pub longitude: f64,
+}
