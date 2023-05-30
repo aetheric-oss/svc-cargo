@@ -9,7 +9,7 @@ pub use tonic::transport::Channel;
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
     pub scheduler: GrpcClient<SchedulerClient<Channel>>,
-    pub storage: GrpcClient<VertiportClient<Channel>>,
+    pub vertiport_storage: GrpcClient<VertiportClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
@@ -90,7 +90,8 @@ impl GrpcClients {
                 &config.scheduler_host_grpc,
                 config.scheduler_port_grpc,
             ),
-            storage: GrpcClient::<VertiportClient<Channel>>::new(
+            // vertiport storage
+            vertiport_storage: GrpcClient::<VertiportClient<Channel>>::new(
                 &config.storage_host_grpc,
                 config.storage_port_grpc,
             ),

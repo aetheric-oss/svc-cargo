@@ -23,6 +23,7 @@ use utoipa::OpenApi;
             api::rest_types::ItineraryCancel,
             api::rest_types::FlightQuery,
             api::rest_types::ItineraryConfirm,
+            api::rest_types::ParcelScan,
             api::rest_types::TimeWindow
         )
     ),
