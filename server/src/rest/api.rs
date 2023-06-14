@@ -9,21 +9,23 @@ use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
 use uuid::Uuid;
 
 use crate::grpc::client::GrpcClients;
-
-use svc_storage_client_grpc::AdvancedSearchFilter;
+use svc_storage_client_grpc::resources::{
+    parcel::Data as ParcelData, parcel::ParcelStatus, parcel_scan::Data as ParcelScanData, GeoPoint,
+};
+use svc_storage_client_grpc::{AdvancedSearchFilter, Id};
 
 use svc_pricing_client::pricing_grpc::{
     pricing_request::ServiceType, PricingRequest, PricingRequests,
 };
 
 use svc_scheduler_client_grpc::grpc::{
-    ConfirmItineraryRequest, Id, Itinerary as SchedulerItinerary, QueryFlightPlan,
+    ConfirmItineraryRequest, Id as ResourceId, Itinerary as SchedulerItinerary, QueryFlightPlan,
     QueryFlightRequest,
 };
 
 pub use rest_types::{
-    FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, ParcelScan, Vertiport,
-    VertiportsQuery,
+    FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, ItineraryConfirmation,
+    ParcelScan, Vertiport, VertiportsQuery,
 };
 
 /// Don't allow excessively heavy loads
@@ -176,33 +178,43 @@ pub async fn query_vertiports(
     };
 
     // Make request, process response
-    let response = client.search(request).await;
-    match response {
-        Ok(r) => {
-            let ret: Vec<Vertiport> = r
-                .into_inner()
-                .list
-                .into_iter()
-                .map(|x| {
-                    let data = x.data.unwrap();
-                    Vertiport {
-                        id: x.id,
-                        label: data.description,
-                        latitude: data.latitude,
-                        longitude: data.longitude,
-                    }
-                })
-                .collect();
+    let Ok(response) = client.search(request).await else {
+        let error_msg = "error response from svc-storage.".to_string();
+        rest_error!("(query_vertiports) {}.", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR)
+    };
 
-            rest_info!("(query_vertiports) found {} vertiports.", ret.len());
-            Ok(Json(ret))
-        }
-        Err(e) => {
-            let error_msg = "error response from svc-storage.".to_string();
-            rest_error!("(query_vertiports) {} {:?}.", &error_msg, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
+    let mut vertiports: Vec<Vertiport> = vec![];
+    for obj in response.into_inner().list {
+        let Some(data) = obj.data else {
+            rest_error!("(query_vertiports) vertiport data is None.");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let Some(location) = data.geo_location else {
+            rest_error!("(query_vertiports) vertiport location is None.");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let Some(exterior) = location.exterior else {
+            rest_error!("(query_vertiports) vertiport exterior is None.");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let points = exterior.points;
+        let latitude = points.iter().map(|pt| pt.x).sum::<f64>() / points.len() as f64;
+        let longitude = points.iter().map(|pt| pt.y).sum::<f64>() / points.len() as f64;
+
+        vertiports.push(Vertiport {
+            id: obj.id,
+            label: data.description,
+            latitude: latitude as f32,
+            longitude: longitude as f32,
+        })
     }
+
+    rest_info!("(query_vertiports) found {} vertiports.", vertiports.len());
+    Ok(Json(vertiports))
 }
 
 /// Get Available Flights
@@ -406,23 +418,25 @@ pub async fn query_flight(
     Ok(Json(offerings))
 }
 
-/// Confirm a Flight
+/// Confirm an itinerary
+/// This will confirm an itinerary with the scheduler, and will register the parcel with
+///  the storage service.
 #[utoipa::path(
     put,
     path = "/cargo/confirm",
     tag = "svc-cargo",
     request_body = ItineraryConfirm,
     responses(
-        (status = 200, description = "Flight Confirmed", body = String),
+        (status = 200, description = "Itinerary confirmed", body = String),
         (status = 400, description = "Request body is invalid format"),
-        (status = 500, description = "svc-scheduler returned error"),
+        (status = 500, description = "Microservice dependency returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
 pub async fn confirm_itinerary(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryConfirm>,
-) -> Result<String, StatusCode> {
+) -> Result<Json<ItineraryConfirmation>, StatusCode> {
     rest_debug!("(confirm_itinerary) entry.");
 
     if !is_uuid(&payload.id) {
@@ -431,38 +445,86 @@ pub async fn confirm_itinerary(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Get Client
-    let client_option = grpc_clients.scheduler.get_client().await;
-    let Some(mut client) = client_option else {
+    //
+    // Confirm itinerary with scheduler
+    //
+    let Some(mut client) = grpc_clients.scheduler.get_client().await else {
         let error_msg = "svc-scheduler unavailable.".to_string();
         rest_error!("(confirm_itinerary) {}", &error_msg);
         return Err(StatusCode::SERVICE_UNAVAILABLE);
     };
 
     // Make request, process response
-    let request = tonic::Request::new(ConfirmItineraryRequest {
+    let data = ConfirmItineraryRequest {
         id: payload.id,
         user_id: payload.user_id,
-    });
-    let response = client.confirm_itinerary(request).await;
-    match response {
-        Ok(r) => {
-            let ret = r.into_inner();
-            if ret.confirmed {
-                rest_info!("(confirm_itinerary) svc-scheduler confirm success.");
-                Ok(ret.id)
-            } else {
-                let error_msg = "svc-scheduler confirm fail.".to_string();
-                rest_error!("(confirm_itinerary) {}", &error_msg);
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
-            }
-        }
+    };
+    let request = tonic::Request::new(data);
+    let response = match client.confirm_itinerary(request).await {
+        Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-scheduler error.".to_string();
             rest_error!("(confirm_itinerary) {} {:?}", &error_msg, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
+    };
+
+    if !response.confirmed {
+        let error_msg = "svc-scheduler confirm fail.".to_string();
+        rest_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
+
+    //
+    // Register Parcel with Storage
+    //
+    let itinerary_id = response.id;
+    let data = ParcelData {
+        itinerary_id: itinerary_id.clone(),
+        status: ParcelStatus::Notdroppedoff as i32,
+    };
+
+    // TODO(R4): Push to queue, in case this call fails need a retry mechanism
+    let request = tonic::Request::new(data);
+    let Some(mut client) = grpc_clients.parcel_storage.get_client().await else {
+        let error_msg = "svc-parcel-storage unavailable.".to_string();
+        rest_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    // Make request, process response
+    let response = match client.insert(request).await {
+        Ok(response) => response.into_inner(),
+        Err(e) => {
+            let error_msg = "svc-parcel-storage error.".to_string();
+            rest_error!("(confirm_itinerary) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let Some(result) = response.validation_result else {
+        let error_msg = "svc-parcel-storage validation fail.".to_string();
+        rest_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    };
+
+    let Some(object) = response.object else {
+        let error_msg = "svc-parcel-storage insert fail.".to_string();
+        rest_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    };
+
+    let parcel_id = object.id;
+    if !result.success {
+        let error_msg = "svc-parcel-storage insert fail.".to_string();
+        rest_error!("(confirm_itinerary) {}", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(Json(ItineraryConfirmation {
+        itinerary_id,
+        parcel_id,
+    }))
 }
 
 /// Cancel a Flight
@@ -481,9 +543,10 @@ pub async fn confirm_itinerary(
 pub async fn cancel_itinerary(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCancel>,
-) -> Result<String, StatusCode> {
+) -> Result<(), StatusCode> {
     rest_debug!("(cancel_itinerary) entry.");
-    if !is_uuid(&payload.id) {
+    let itinerary_id = payload.id;
+    if !is_uuid(&itinerary_id) {
         let error_msg = "itinerary ID not in UUID format.".to_string();
         rest_error!("(cancel_itinerary) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
@@ -498,29 +561,76 @@ pub async fn cancel_itinerary(
     };
 
     // Make request, process response
-    let request = tonic::Request::new(Id { id: payload.id });
-    let response = client.cancel_itinerary(request).await;
-    match response {
-        Ok(r) => {
-            let ret = r.into_inner();
-            if ret.cancelled {
-                rest_info!("(cancel_itinerary) svc-scheduler cancel success.");
-                Ok(ret.id)
-            } else {
-                let error_msg = "svc-scheduler cancel fail.".to_string();
-                rest_error!("(cancel_itinerary) {} {}", &error_msg, ret.reason);
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
-            }
-        }
+    let request = tonic::Request::new(ResourceId {
+        id: itinerary_id.clone(),
+    });
+    let response = match client.cancel_itinerary(request).await {
+        Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-scheduler request fail.".to_string();
             rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
+    };
+
+    if !response.cancelled {
+        let error_msg = "svc-scheduler cancel fail.".to_string();
+        rest_error!("(cancel_itinerary) {} {}", &error_msg, response.reason);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
+
+    rest_info!("(cancel_itinerary) successfully cancelled itinerary.");
+
+    //
+    // Get parcel from id
+    //
+    let Some(mut client) = grpc_clients.parcel_storage.get_client().await else {
+        let error_msg = "svc-parcel-storage unavailable.".to_string();
+        rest_error!("(cancel_itinerary) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    let filter =
+        AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.clone());
+
+    let list = match client.search(filter).await {
+        Ok(response) => response.into_inner().list,
+        Err(e) => {
+            let error_msg = "svc-parcel-storage error.".to_string();
+            rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // An itinerary might have multiple parcels
+    // TODO(R4): Push these onto a queue in case any one fails
+    let mut ok = true;
+    for parcel in list {
+        let request = tonic::Request::new(Id { id: parcel.id });
+        match client.delete(request).await {
+            Ok(_) => {
+                // Delete activity currently returns Empty
+                // response.into_inner()
+            }
+            Err(e) => {
+                let error_msg = "svc-parcel-storage error.".to_string();
+                rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
+                // Still try to delete other parcels
+                ok = false;
+            }
+        };
+    }
+
+    if !ok {
+        rest_error!("(cancel_itinerary) could not delete all parcels.");
+    }
+
+    // If the customer's itinerary was cancelled, but the parcels were not, it's still a success for them
+    Ok(())
 }
 
-/// Confirm a Flight
+/// Scan a parcel
+/// The provided parcel ID and scanner ID must already exist in the database
 #[utoipa::path(
     put,
     path = "/cargo/scan",
@@ -534,9 +644,9 @@ pub async fn cancel_itinerary(
     )
 )]
 pub async fn scan_parcel(
-    Extension(mut _grpc_clients): Extension<GrpcClients>,
+    Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ParcelScan>,
-) -> Result<String, StatusCode> {
+) -> Result<(), StatusCode> {
     rest_debug!("(scan_parcel) entry.");
 
     if !is_uuid(&payload.parcel_id) {
@@ -551,45 +661,61 @@ pub async fn scan_parcel(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // TODO(R3) - Uncomment when interface exists with svc-storage
+    if payload.latitude < -90.0
+        || payload.latitude > 90.0
+        || payload.longitude < -180.0
+        || payload.longitude > 180.0
+    {
+        let error_msg = "coordinates out of range.".to_string();
+        rest_error!(
+            "(scan_parcel) {}: (lat: {}, lon: {})",
+            &error_msg,
+            payload.latitude,
+            payload.longitude
+        );
+        return Err(StatusCode::BAD_REQUEST);
+    }
 
     // Get Client
-    // let client_option = grpc_clients.parcel_storage.get_client().await;
-    // let Some(mut client) = client_option else {
-    //     let error_msg = "svc-storage unavailable.".to_string();
-    //     rest_error!("(scan_parcel) {}", &error_msg);
-    //     return Err(StatusCode::SERVICE_UNAVAILABLE);
-    // };
+    let Some(mut client) = grpc_clients.parcel_scan_storage.get_client().await else {
+        let error_msg = "svc-storage unavailable.".to_string();
+        rest_error!("(scan_parcel) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
 
-    // // Make request, process response
-    // let request = tonic::Request::new(ParcelScanRequest {
-    //     scanner_id: payload.id,
-    //     parcel_id: payload.user_id,
-    //     latitude: payload.latitude,
-    //     longitude: payload.longitude
-    // });
-    //
-    // let response = client.scan_parcel(request).await;
-    // match response {
-    //     Ok(r) => {
-    //         let ret = r.into_inner();
-    //         if ret.confirmed {
-    //             rest_info!("(scan_parcel) svc-storage success.");
-    //             Ok(ret.id)
-    //         } else {
-    //             let error_msg = "svc-storage failure.".to_string();
-    //             rest_error!("(scan_parcel) {}", &error_msg);
-    //             Err(StatusCode::INTERNAL_SERVER_ERROR)
-    //         }
-    //     }
-    //     Err(e) => {
-    //         let error_msg = "svc-storage error.".to_string();
-    //         rest_error!("(scan_parcel) {} {:?}", &error_msg, e);
-    //         Err(StatusCode::INTERNAL_SERVER_ERROR)
-    //     }
-    // }
+    // Make request, process response
+    let request = tonic::Request::new(ParcelScanData {
+        scanner_id: payload.scanner_id,
+        parcel_id: payload.parcel_id,
+        geo_location: Some(GeoPoint {
+            x: payload.longitude,
+            y: payload.latitude,
+        }),
+    });
 
-    Err(StatusCode::NOT_IMPLEMENTED)
+    let response = match client.insert(request).await {
+        Ok(response) => response.into_inner(),
+        Err(e) => {
+            let error_msg = "svc-storage error.".to_string();
+            rest_error!("(scan_parcel) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let Some(response) = response.validation_result else {
+        let error_msg = "svc-storage response invalid.".to_string();
+        rest_error!("(scan_parcel) {}", &error_msg);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    };
+
+    if response.success {
+        rest_info!("(scan_parcel) svc-storage success.");
+        Ok(())
+    } else {
+        let error_msg = "svc-storage failure.".to_string();
+        rest_error!("(scan_parcel) {}", &error_msg);
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
+    }
 }
 
 #[cfg(test)]

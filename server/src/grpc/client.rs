@@ -1,6 +1,6 @@
 pub use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
 pub use svc_scheduler_client_grpc::grpc::rpc_service_client::RpcServiceClient as SchedulerClient;
-pub use svc_storage_client_grpc::VertiportClient;
+pub use svc_storage_client_grpc::{ParcelClient, ParcelScanClient, VertiportClient};
 
 use futures::lock::Mutex;
 use std::sync::Arc;
@@ -10,6 +10,8 @@ pub use tonic::transport::Channel;
 pub struct GrpcClients {
     pub scheduler: GrpcClient<SchedulerClient<Channel>>,
     pub vertiport_storage: GrpcClient<VertiportClient<Channel>>,
+    pub parcel_storage: GrpcClient<ParcelClient<Channel>>,
+    pub parcel_scan_storage: GrpcClient<ParcelScanClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
@@ -80,7 +82,9 @@ macro_rules! grpc_client {
 }
 
 grpc_client!(SchedulerClient, "scheduler");
-grpc_client!(VertiportClient, "storage");
+grpc_client!(VertiportClient, "vertiport_storage");
+grpc_client!(ParcelScanClient, "parcel_scan_storage");
+grpc_client!(ParcelClient, "parcel_storage");
 grpc_client!(PricingClient, "pricing");
 
 impl GrpcClients {
@@ -92,6 +96,16 @@ impl GrpcClients {
             ),
             // vertiport storage
             vertiport_storage: GrpcClient::<VertiportClient<Channel>>::new(
+                &config.storage_host_grpc,
+                config.storage_port_grpc,
+            ),
+            // parcel storage
+            parcel_storage: GrpcClient::<ParcelClient<Channel>>::new(
+                &config.storage_host_grpc,
+                config.storage_port_grpc,
+            ),
+            // vertiport storage
+            parcel_scan_storage: GrpcClient::<ParcelScanClient<Channel>>::new(
                 &config.storage_host_grpc,
                 config.storage_port_grpc,
             ),
