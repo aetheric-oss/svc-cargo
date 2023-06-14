@@ -113,6 +113,18 @@ pub struct ItineraryConfirm {
     pub user_id: String
 }
 
+/// UUIDs of the confirmed flight
+#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
+#[derive(ToSchema)]
+pub struct ItineraryConfirmation {
+    /// UUID of the itinerary
+    pub itinerary_id: String,
+
+    /// UUID of the package
+    pub parcel_id: String
+}
+
 /// Vertiport Information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Vertiport {
@@ -123,11 +135,11 @@ pub struct Vertiport {
     #[schema(example = "Mercy Hospital (Public)")]
     pub label: String,
 
-    /// The latitude (float value) of the vertiport
-    pub latitude: f64,
+    /// The latitude (float value) of the vertiport (centroid)
+    pub latitude: f32,
 
-    /// The longitude (float value) of the vertiport
-    pub longitude: f64,
+    /// The longitude (float value) of the vertiport (centroid)
+    pub longitude: f32,
 }
 
 // #[derive(Serialize, Deserialize, ToSchema, Clone)]
