@@ -6,12 +6,12 @@ use futures::lock::Mutex;
 use std::sync::Arc;
 pub use tonic::transport::Channel;
 
+use svc_storage_client_grpc::Clients;
+
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
+    pub storage: Clients,
     pub scheduler: GrpcClient<SchedulerClient<Channel>>,
-    pub vertiport_storage: GrpcClient<VertiportClient<Channel>>,
-    pub parcel_storage: GrpcClient<ParcelClient<Channel>>,
-    pub parcel_scan_storage: GrpcClient<ParcelScanClient<Channel>>,
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
@@ -82,32 +82,15 @@ macro_rules! grpc_client {
 }
 
 grpc_client!(SchedulerClient, "scheduler");
-grpc_client!(VertiportClient, "vertiport_storage");
-grpc_client!(ParcelScanClient, "parcel_scan_storage");
-grpc_client!(ParcelClient, "parcel_storage");
 grpc_client!(PricingClient, "pricing");
 
 impl GrpcClients {
     pub fn new(config: crate::config::Config) -> Self {
         GrpcClients {
+            storage: Clients::new(config.storage_host_grpc, config.storage_port_grpc),
             scheduler: GrpcClient::<SchedulerClient<Channel>>::new(
                 &config.scheduler_host_grpc,
                 config.scheduler_port_grpc,
-            ),
-            // vertiport storage
-            vertiport_storage: GrpcClient::<VertiportClient<Channel>>::new(
-                &config.storage_host_grpc,
-                config.storage_port_grpc,
-            ),
-            // parcel storage
-            parcel_storage: GrpcClient::<ParcelClient<Channel>>::new(
-                &config.storage_host_grpc,
-                config.storage_port_grpc,
-            ),
-            // vertiport storage
-            parcel_scan_storage: GrpcClient::<ParcelScanClient<Channel>>::new(
-                &config.storage_host_grpc,
-                config.storage_port_grpc,
             ),
             pricing: GrpcClient::<PricingClient<Channel>>::new(
                 &config.pricing_host_grpc,
