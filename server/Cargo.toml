@@ -47,14 +47,13 @@ git = "https://github.com/Arrow-air/svc-pricing"
 tag = "v0.5.0"
 
 [dependencies.svc-storage-client-grpc]
-features = ["vertiport", "parcel_scan"]
+features = ["vertiport", "parcel_scan", "parcel"]
 git      = "https://github.com/Arrow-air/svc-storage"
 tag      = "v0.10.1-develop.10"
 
 [dependencies.lib-common]
 git = "https://github.com/Arrow-air/lib-common"
 tag = "v0.1.0"
-
 
 [build-dependencies]
 tonic-build = "0.8"

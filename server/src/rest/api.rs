@@ -12,6 +12,7 @@ use crate::grpc::client::GrpcClients;
 use svc_storage_client_grpc::resources::{
     parcel::Data as ParcelData, parcel::ParcelStatus, parcel_scan::Data as ParcelScanData, GeoPoint,
 };
+use svc_storage_client_grpc::ClientConnect;
 use svc_storage_client_grpc::{AdvancedSearchFilter, Id};
 
 use svc_pricing_client::pricing_grpc::{
@@ -99,9 +100,20 @@ pub async fn health_check(
 
     let mut ok = true;
 
-    let result = grpc_clients.vertiport_storage.get_client().await;
-    if result.is_none() {
-        let error_msg = "svc-storage unavailable.".to_string();
+    if grpc_clients.storage.vertiport.get_client().await.is_err() {
+        let error_msg = "svc-storage vertiport client unavailable.".to_string();
+        rest_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    if grpc_clients.storage.parcel.get_client().await.is_err() {
+        let error_msg = "svc-storage parcel client unavailable.".to_string();
+        rest_error!("(health_check) {}", &error_msg);
+        ok = false;
+    };
+
+    if grpc_clients.storage.parcel_scan.get_client().await.is_err() {
+        let error_msg = "svc-storage parcel scan client unavailable.".to_string();
         rest_error!("(health_check) {}", &error_msg);
         ok = false;
     };
@@ -145,7 +157,7 @@ pub async fn health_check(
     )
 )]
 pub async fn query_vertiports(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<VertiportsQuery>,
 ) -> Result<Json<Vec<Vertiport>>, StatusCode> {
     rest_debug!("(query_vertiports) entry.");
@@ -170,8 +182,7 @@ pub async fn query_vertiports(
     let request = tonic::Request::new(filter);
 
     // Get Client
-    let result = grpc_clients.vertiport_storage.get_client().await;
-    let Some(mut client) = result else {
+    let Ok(mut client) = grpc_clients.storage.vertiport.get_client().await else {
         let error_msg = "svc-storage unavailable.".to_string();
         rest_error!("(query_vertiports) {}", &error_msg);
         return Err(StatusCode::SERVICE_UNAVAILABLE);
@@ -486,7 +497,7 @@ pub async fn confirm_itinerary(
 
     // TODO(R4): Push to queue, in case this call fails need a retry mechanism
     let request = tonic::Request::new(data);
-    let Some(mut client) = grpc_clients.parcel_storage.get_client().await else {
+    let Ok(mut client) = grpc_clients.storage.parcel.get_client().await else {
         let error_msg = "svc-parcel-storage unavailable.".to_string();
         rest_error!("(confirm_itinerary) {}", &error_msg);
         return Err(StatusCode::SERVICE_UNAVAILABLE);
@@ -584,7 +595,7 @@ pub async fn cancel_itinerary(
     //
     // Get parcel from id
     //
-    let Some(mut client) = grpc_clients.parcel_storage.get_client().await else {
+    let Ok(mut client) = grpc_clients.storage.parcel.get_client().await else {
         let error_msg = "svc-parcel-storage unavailable.".to_string();
         rest_error!("(cancel_itinerary) {}", &error_msg);
         return Err(StatusCode::SERVICE_UNAVAILABLE);
@@ -644,7 +655,7 @@ pub async fn cancel_itinerary(
     )
 )]
 pub async fn scan_parcel(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ParcelScan>,
 ) -> Result<(), StatusCode> {
     rest_debug!("(scan_parcel) entry.");
@@ -677,7 +688,7 @@ pub async fn scan_parcel(
     }
 
     // Get Client
-    let Some(mut client) = grpc_clients.parcel_scan_storage.get_client().await else {
+    let Ok(mut client) = grpc_clients.storage.parcel_scan.get_client().await else {
         let error_msg = "svc-storage unavailable.".to_string();
         rest_error!("(scan_parcel) {}", &error_msg);
         return Err(StatusCode::SERVICE_UNAVAILABLE);
