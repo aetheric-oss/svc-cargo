@@ -3,9 +3,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
+/// Don't allow overly large numbers of landings to be returned
+pub const MAX_LANDINGS_TO_RETURN: u32 = 50;
+
 /// Request Body Information for Flight Query
 #[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
-pub struct FlightQuery {
+pub struct FlightRequest {
     /// The String ID of the vertiport to leave from
     pub vertiport_depart_id: String,
 
@@ -186,6 +189,9 @@ pub struct LandingsQuery {
 
     /// The window to search for landings
     pub arrival_window: Option<TimeWindow>,
+
+    /// The maximum number of landings to return (max: [`MAX_LANDINGS_TO_RETURN`]])
+    pub limit: u32,
 }
 
 /// Landings Response
@@ -201,10 +207,13 @@ pub struct Landing {
     /// The String ID of the flight plan
     pub flight_plan_id: String,
 
+    /// Vertipad Name
+    pub vertipad_name: String,
+
     /// The callsign of the aircraft
     pub aircraft_callsign: String,
 
-    /// The window of arrival
+    /// The time of arrival
     pub timestamp: DateTime<Utc>,
     // TODO(R4) Aircraft Nickname
     // pub aircraft_nickname: String,

@@ -67,4 +67,4 @@ GRPC server methods are called "services", an unfortunate name clash with the br
 
 | Request | Description |
 | ------    | ------- |
-| `FlightQuery` | A message to the svc-scheduler in particular
+| `FlightRequest` | A message to the svc-scheduler in particular

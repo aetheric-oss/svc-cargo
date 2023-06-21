@@ -15,13 +15,25 @@ pub async fn server(config: crate::config::Config) {
     let grpc_clients = GrpcClients::new(config);
 
     let app = Router::new()
-        .route("/health", routing::get(api::health_check))
-        .route("/cargo/cancel", routing::delete(api::cancel_itinerary))
-        .route("/cargo/query", routing::post(api::query_flight))
-        .route("/cargo/confirm", routing::put(api::confirm_itinerary))
-        .route("/cargo/vertiports", routing::post(api::query_vertiports))
-        .route("/cargo/scan", routing::put(api::scan_parcel))
-        .route("/cargo/landings", routing::get(api::query_landings))
+        .route("/health", routing::get(api::health::health_check))
+        .route(
+            "/cargo/cancel",
+            routing::delete(api::cancel::cancel_itinerary),
+        )
+        .route(
+            "/cargo/request",
+            routing::post(api::request::request_flight),
+        )
+        .route(
+            "/cargo/confirm",
+            routing::put(api::confirm::confirm_itinerary),
+        )
+        .route(
+            "/cargo/vertiports",
+            routing::post(api::query::query_vertiports),
+        )
+        .route("/cargo/scan", routing::put(api::scan::scan_parcel))
+        .route("/cargo/landings", routing::get(api::query::query_landings))
         .layer(Extension(grpc_clients)); // Extension layer must be last
 
     let address = format!("[::]:{rest_port}");

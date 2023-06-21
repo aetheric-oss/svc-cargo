@@ -20,6 +20,9 @@
 mod config;
 mod grpc;
 mod rest;
+mod rest_types {
+    include!("../../openapi/types.rs");
+}
 
 use clap::Parser;
 use dotenv::dotenv;

@@ -65,10 +65,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}: {}", uri, result_str);
     }
 
-    // POST /cargo/query
+    // POST /cargo/request
     {
         let depart_timestamp_min = Utc::now() + Duration::seconds(60);
-        let data = FlightQuery {
+        let data = FlightRequest {
             // Arbitrary UUIDs
             vertiport_depart_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
             vertiport_arrive_id: "59e51ad1-d57d-4d2c-bc2d-e2387367d17f".to_string(),
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("Failed to serialize data");
         };
 
-        let uri = format!("{}/cargo/query", url);
+        let uri = format!("{}/cargo/request", url);
         let Ok(req) = Request::builder()
             .method(Method::POST)
             .uri(uri.clone())
@@ -196,6 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 timestamp_min: Utc::now(),
                 timestamp_max: Utc::now() + Duration::seconds(3600),
             }),
+            limit: 20,
         };
 
         let Ok(data) = serde_json::to_string(&data) else {

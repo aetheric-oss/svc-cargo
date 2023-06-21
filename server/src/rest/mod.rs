@@ -3,34 +3,36 @@ pub mod macros;
 pub mod api;
 pub mod server;
 
+use crate::rest_types;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::query_flight,
-        api::query_vertiports,
-        api::confirm_itinerary,
-        api::cancel_itinerary,
-        api::scan_parcel,
-        api::query_landings
+        api::request::request_flight,
+        api::query::query_vertiports,
+        api::confirm::confirm_itinerary,
+        api::cancel::cancel_itinerary,
+        api::scan::scan_parcel,
+        api::query::query_landings,
+        api::health::health_check
     ),
     components(
         schemas(
-            api::rest_types::Itinerary,
-            api::rest_types::FlightLeg,
-            api::rest_types::Vertiport,
-            api::rest_types::ConfirmStatus,
-            api::rest_types::VertiportsQuery,
-            api::rest_types::ItineraryCancel,
-            api::rest_types::FlightQuery,
-            api::rest_types::ItineraryConfirm,
-            api::rest_types::ItineraryConfirmation,
-            api::rest_types::ParcelScan,
-            api::rest_types::TimeWindow,
-            api::rest_types::Landing,
-            api::rest_types::LandingsQuery,
-            api::rest_types::LandingsResponse
+            rest_types::Itinerary,
+            rest_types::FlightLeg,
+            rest_types::Vertiport,
+            rest_types::ConfirmStatus,
+            rest_types::VertiportsQuery,
+            rest_types::ItineraryCancel,
+            rest_types::FlightRequest,
+            rest_types::ItineraryConfirm,
+            rest_types::ItineraryConfirmation,
+            rest_types::ParcelScan,
+            rest_types::TimeWindow,
+            rest_types::Landing,
+            rest_types::LandingsQuery,
+            rest_types::LandingsResponse
         )
     ),
     tags(
