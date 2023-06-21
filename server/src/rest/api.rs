@@ -9,6 +9,7 @@ use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
 use uuid::Uuid;
 
 use crate::grpc::client::GrpcClients;
+use svc_storage_client_grpc::resources::itinerary::ItineraryStatus as StorageItineraryStatus;
 use svc_storage_client_grpc::resources::{
     parcel::Data as ParcelData, parcel::ParcelStatus, parcel_scan::Data as ParcelScanData, GeoPoint,
 };
@@ -28,6 +29,8 @@ pub use rest_types::{
     FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, ItineraryConfirmation,
     ParcelScan, Vertiport, VertiportsQuery,
 };
+
+pub use rest_types::{ItineraryInfo, ItineraryInfoList, ItineraryStatus};
 
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
@@ -727,6 +730,123 @@ pub async fn scan_parcel(
         rest_error!("(scan_parcel) {}", &error_msg);
         Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
+}
+
+/// Scan a parcel
+/// The provided parcel ID and scanner ID must already exist in the database
+#[utoipa::path(
+    put,
+    path = "/cargo/status",
+    tag = "svc-cargo",
+    request_body = String,
+    responses(
+        (status = 200, description = "Status retrieved", body = String),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 500, description = "svc-storage returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
+    )
+)]
+pub async fn query_itinerary_status(
+    Extension(grpc_clients): Extension<GrpcClients>,
+    Json(user_id): Json<String>,
+) -> Result<Json<ItineraryInfoList>, StatusCode> {
+    if !is_uuid(&user_id) {
+        let error_msg = "itinerary ID not in UUID format.".to_string();
+        rest_error!("(query_itinerary_status) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    //
+    // Get Itinerary Client
+    //
+    let Ok(mut client) = grpc_clients.storage.itinerary.get_client().await else {
+        let error_msg = "svc-storage unavailable.".to_string();
+        rest_error!("(query_itinerary_status) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    let filter = AdvancedSearchFilter::search_equals("user_id".to_string(), user_id);
+    // TODO(R4) incomplete itineraries only
+
+    let request = tonic::Request::new(filter);
+    let response = match client.search(request).await {
+        Ok(response) => response.into_inner(),
+        Err(e) => {
+            let error_msg = "svc-storage error.".to_string();
+            rest_error!("(query_itinerary_status) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let Ok(mut client) = grpc_clients.storage.itinerary_flight_plan_link.get_client().await else {
+        let error_msg = "svc-storage unavailable.".to_string();
+        rest_error!("(query_itinerary_status) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    let mut itineraries: Vec<ItineraryInfo> = vec![];
+    for itinerary in response.list {
+        let itinerary_id = itinerary.id;
+        let Some(data) = itinerary.data else {
+            let error_msg = "svc-storage response invalid.".to_string();
+            rest_error!("(query_itinerary_status) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        // Get flight plans
+        let request = tonic::Request::new(Id {
+            id: itinerary_id.clone(),
+        });
+
+        let Ok(response) = client.get_linked(request).await else {
+            let error_msg = "could not get linked flight plans from storage.".to_string();
+            rest_error!("(query_itinerary_status) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let mut legs = vec![];
+        for plan in response.into_inner().list {
+            let Some(data) = plan.data else {
+                let error_msg = "svc-storage response invalid.".to_string();
+                rest_error!("(query_itinerary_status) {}", &error_msg);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            };
+
+            legs.push(FlightLeg {
+                flight_plan_id: plan.id.clone(),
+                vertiport_depart_id: data.departure_vertipad_id,
+                vertiport_arrive_id: data.destination_vertipad_id,
+                timestamp_depart: timestamp_to_datetime(&data.scheduled_departure),
+                timestamp_arrive: timestamp_to_datetime(&data.estimated_arrival),
+                distance_m: data.estimated_distance,
+                base_pricing: None,
+                currency_type: None,
+            });
+        }
+
+        let Some(status) = StorageItineraryStatus::from_i32(data.status) else {
+            let error_msg = "svc-storage response invalid: bad itinerary status.".to_string();
+            rest_error!("(query_itinerary_status) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let mut itinerary = ItineraryInfo {
+            status: match status {
+                StorageItineraryStatus::Cancelled => ItineraryStatus::Cancelled,
+                StorageItineraryStatus::Active => ItineraryStatus::Active,
+            },
+            itinerary: Itinerary {
+                id: itinerary_id,
+                legs,
+                base_pricing: None,
+                currency_type: None,
+            },
+        };
+
+        itineraries.push(itinerary)
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -47,7 +47,7 @@ git = "https://github.com/Arrow-air/svc-pricing"
 tag = "v0.5.0"
 
 [dependencies.svc-storage-client-grpc]
-features = ["vertiport", "parcel_scan", "parcel"]
+features = ["vertiport", "parcel_scan", "parcel", "itinerary"]
 git      = "https://github.com/Arrow-air/svc-storage"
 tag      = "v0.10.1-develop.10"
 
@@ -64,9 +64,9 @@ version  = "3.2"
 
 [dependencies.log4rs]
 features = [
-  "background_rotation",
-  "rolling_file_appender",
-  "json_format",
-  "gzip",
+    "background_rotation",
+    "rolling_file_appender",
+    "json_format",
+    "gzip",
 ]
 version = "1.2"

@@ -11,7 +11,8 @@ use utoipa::OpenApi;
         api::query_flight,
         api::query_vertiports,
         api::confirm_itinerary,
-        api::cancel_itinerary
+        api::cancel_itinerary,
+        api::query_itinerary_status
     ),
     components(
         schemas(
