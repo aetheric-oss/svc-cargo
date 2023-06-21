@@ -11,7 +11,9 @@ use utoipa::OpenApi;
         api::query_flight,
         api::query_vertiports,
         api::confirm_itinerary,
-        api::cancel_itinerary
+        api::cancel_itinerary,
+        api::scan_parcel,
+        api::query_landings
     ),
     components(
         schemas(
@@ -25,7 +27,10 @@ use utoipa::OpenApi;
             api::rest_types::ItineraryConfirm,
             api::rest_types::ItineraryConfirmation,
             api::rest_types::ParcelScan,
-            api::rest_types::TimeWindow
+            api::rest_types::TimeWindow,
+            api::rest_types::Landing,
+            api::rest_types::LandingsQuery,
+            api::rest_types::LandingsResponse
         )
     ),
     tags(

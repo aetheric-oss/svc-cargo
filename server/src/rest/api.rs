@@ -26,7 +26,7 @@ use svc_scheduler_client_grpc::grpc::{
 
 pub use rest_types::{
     FlightLeg, FlightQuery, Itinerary, ItineraryCancel, ItineraryConfirm, ItineraryConfirmation,
-    ParcelScan, Vertiport, VertiportsQuery,
+    Landing, LandingsQuery, LandingsResponse, ParcelScan, Vertiport, VertiportsQuery,
 };
 
 /// Don't allow excessively heavy loads
@@ -213,8 +213,8 @@ pub async fn query_vertiports(
         };
 
         let points = exterior.points;
-        let latitude = points.iter().map(|pt| pt.x).sum::<f64>() / points.len() as f64;
-        let longitude = points.iter().map(|pt| pt.y).sum::<f64>() / points.len() as f64;
+        let latitude = points.iter().map(|pt| pt.latitude).sum::<f64>() / points.len() as f64;
+        let longitude = points.iter().map(|pt| pt.longitude).sum::<f64>() / points.len() as f64;
 
         vertiports.push(Vertiport {
             id: obj.id,
@@ -699,8 +699,8 @@ pub async fn scan_parcel(
         scanner_id: payload.scanner_id,
         parcel_id: payload.parcel_id,
         geo_location: Some(GeoPoint {
-            x: payload.longitude,
-            y: payload.latitude,
+            latitude: payload.longitude,
+            longitude: payload.latitude,
         }),
     });
 
@@ -727,6 +727,127 @@ pub async fn scan_parcel(
         rest_error!("(scan_parcel) {}", &error_msg);
         Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
+}
+
+/// Request a list of landings for a vertiport
+#[utoipa::path(
+    get,
+    path = "/cargo/landings",
+    tag = "svc-cargo",
+    responses(
+        (status = 200, description = "Landings retrieved successfully"),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 500, description = "Dependencies returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
+    ),
+    request_body = LandingsQuery
+)]
+pub async fn query_landings(
+    Extension(grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<LandingsQuery>,
+) -> Result<Json<LandingsResponse>, StatusCode> {
+    //
+    //
+    //
+    rest_debug!("(get_landings) entry.");
+
+    if !is_uuid(&payload.vertiport_id) {
+        let error_msg = "vertiport ID not in UUID format.".to_string();
+        rest_error!("(get_landings) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let Some(arrival_window) = payload.arrival_window else {
+        let error_msg = "arrival window not specified.".to_string();
+        rest_error!("(get_landings) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    };
+
+    //
+    // Get client
+    //
+    let Ok(mut client) = grpc_clients.storage.flight_plan.get_client().await else {
+        let error_msg = "svc-storage unavailable.".to_string();
+        rest_error!("(get_landings) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    //
+    // Request flight plans
+    //
+    let filter = AdvancedSearchFilter::search_equals(
+        "destination_vertiport_id".to_string(),
+        payload.vertiport_id.clone(),
+    )
+    .and_between(
+        "scheduled_arrival".to_string(),
+        arrival_window.timestamp_min.to_string(),
+        arrival_window.timestamp_max.to_string(),
+    );
+
+    let request = tonic::Request::new(filter);
+    let response = match client.search(request).await {
+        Ok(response) => response.into_inner(),
+        Err(e) => {
+            let error_msg = "svc-storage error.".to_string();
+            rest_error!("(get_landings) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let Ok(mut aircraft_client) = grpc_clients.storage.vehicle.get_client().await else {
+        let error_msg = "svc-storage unavailable.".to_string();
+        rest_error!("(get_landings) {}", &error_msg);
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    let mut landings: Vec<Landing> = vec![];
+    for fp in response.list {
+        let Some(data) = fp.data else {
+            let error_msg = "flight plan data is None.".to_string();
+            rest_error!("(get_landings) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        //
+        // Get Aircraft Details
+        //
+        let response = match aircraft_client
+            .get_by_id(Id {
+                id: data.vehicle_id.clone(),
+            })
+            .await
+        {
+            Ok(response) => response.into_inner(),
+            Err(e) => {
+                let error_msg = "svc-storage error.".to_string();
+                rest_error!("(get_landings) {} {:?}", &error_msg, e);
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+        };
+
+        let Some(vehicle_data) = response.data else {
+            let error_msg = "aircraft data is None.".to_string();
+            rest_error!("(get_landings) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        let aircraft_callsign = vehicle_data.registration_number;
+
+        let Some(scheduled_arrival) = data.scheduled_arrival else {
+            let error_msg = "flight plan has no scheduled arrival.".to_string();
+            rest_error!("(get_landings) {}", &error_msg);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        };
+
+        landings.push(Landing {
+            flight_plan_id: fp.id,
+            aircraft_callsign,
+            timestamp: scheduled_arrival.into(),
+        })
+    }
+
+    Ok(Json(LandingsResponse { landings }))
 }
 
 #[cfg(test)]

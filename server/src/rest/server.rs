@@ -21,6 +21,7 @@ pub async fn server(config: crate::config::Config) {
         .route("/cargo/confirm", routing::put(api::confirm_itinerary))
         .route("/cargo/vertiports", routing::post(api::query_vertiports))
         .route("/cargo/scan", routing::put(api::scan_parcel))
+        .route("/cargo/landings", routing::get(api::query_landings))
         .layer(Extension(grpc_clients)); // Extension layer must be last
 
     let address = format!("[::]:{rest_port}");

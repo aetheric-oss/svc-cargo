@@ -188,6 +188,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{}: {}", uri, result_str);
     }
 
+    // GET /cargo/flights
+    {
+        let data = LandingsQuery {
+            vertiport_id: Uuid::new_v4().to_string(),
+            arrival_window: Some(TimeWindow {
+                timestamp_min: Utc::now(),
+                timestamp_max: Utc::now() + Duration::seconds(3600),
+            }),
+        };
+
+        let Ok(data) = serde_json::to_string(&data) else {
+            panic!("Failed to serialize data");
+        };
+
+        let uri = format!("{}/cargo/landings", url);
+        let Ok(request) = Request::builder()
+            .method(Method::GET)
+            .uri(uri.clone())
+            .header("content-type", "application/json")
+            .body(Body::from(data))
+        else {
+            panic!("Failed to build request");
+        };
+
+        let resp = client.request(request).await;
+        let (success, result_str) = evaluate(resp, StatusCode::ACCEPTED);
+        ok &= success;
+
+        println!("{}: {}", uri, result_str);
+    }
+
     if ok {
         println!("\u{1F9c1} All endpoints responded!");
     } else {

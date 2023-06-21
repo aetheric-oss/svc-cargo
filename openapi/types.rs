@@ -1,12 +1,10 @@
+use chrono::{DateTime, Utc};
 /// Types used for REST communication with the svc-cargo server
-
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-use chrono::{DateTime, Utc};
 
 /// Request Body Information for Flight Query
-#[derive(Debug, Clone, IntoParams, ToSchema)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
 pub struct FlightQuery {
     /// The String ID of the vertiport to leave from
     pub vertiport_depart_id: String,
@@ -21,12 +19,11 @@ pub struct FlightQuery {
     pub time_arrive_window: Option<TimeWindow>,
 
     /// The estimated weight of cargo
-    pub cargo_weight_kg: f32
+    pub cargo_weight_kg: f32,
 }
 
 /// Time window (min and max)
-#[derive(Debug, Copy, Clone, IntoParams, ToSchema)]
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Copy, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
 pub struct TimeWindow {
     /// The start of the pad window
     pub timestamp_min: DateTime<Utc>,
@@ -36,18 +33,14 @@ pub struct TimeWindow {
 }
 
 /// Request body information to cancel an itinerary
-#[derive(Debug, Clone)]
-#[derive(Deserialize, Serialize)]
-#[derive(ToSchema)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct ItineraryCancel {
     /// Itinerary UUID to Cancel
     pub id: String,
 }
 
 /// Request Body Information for Region Query
-#[derive(Debug, Copy, Clone)]
-#[derive(Deserialize, Serialize)]
-#[derive(ToSchema)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, ToSchema)]
 pub struct VertiportsQuery {
     /// Latitude of Client
     pub latitude: f32,
@@ -69,7 +62,7 @@ pub struct Itinerary {
     pub currency_type: Option<String>,
 
     /// The cost of the trip for the customer
-    pub base_pricing: Option<f32>
+    pub base_pricing: Option<f32>,
 }
 
 /// Leg of a flight
@@ -92,37 +85,32 @@ pub struct FlightLeg {
 
     /// The estimated trip distance in meters
     pub distance_m: f32,
-    
+
     /// The currency type, e.g. USD, EUR
     pub currency_type: Option<String>,
 
     /// The cost of the trip for the customer
-    pub base_pricing: Option<f32>
+    pub base_pricing: Option<f32>,
 }
 
-
 /// Customer Itinerary Confirm Option
-#[derive(Debug, Clone)]
-#[derive(Serialize, Deserialize)]
-#[derive(ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ItineraryConfirm {
     /// Itinerary UUID
     pub id: String,
 
     /// User ID
-    pub user_id: String
+    pub user_id: String,
 }
 
 /// UUIDs of the confirmed flight
-#[derive(Debug, Clone)]
-#[derive(Serialize, Deserialize)]
-#[derive(ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ItineraryConfirmation {
     /// UUID of the itinerary
     pub itinerary_id: String,
 
     /// UUID of the package
-    pub parcel_id: String
+    pub parcel_id: String,
 }
 
 /// Vertiport Information
@@ -179,7 +167,7 @@ pub enum ConfirmStatus {
 pub struct ParcelScan {
     /// The unique ID (UUID) of the scanner device
     pub scanner_id: String,
-    
+
     /// The unique ID (UUID) of the parcel
     pub parcel_id: String,
 
@@ -188,4 +176,43 @@ pub struct ParcelScan {
 
     /// The longitude (float value) of the scan location
     pub longitude: f64,
+}
+
+/// Request Body Information for Deliveries Query
+#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
+pub struct LandingsQuery {
+    /// The String ID of the vertiport
+    pub vertiport_id: String,
+
+    /// The window to search for landings
+    pub arrival_window: Option<TimeWindow>,
+}
+
+/// Landings Response
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct LandingsResponse {
+    /// list of landing information
+    pub landings: Vec<Landing>,
+}
+
+/// Landing
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct Landing {
+    /// The String ID of the flight plan
+    pub flight_plan_id: String,
+
+    /// The callsign of the aircraft
+    pub aircraft_callsign: String,
+
+    /// The window of arrival
+    pub timestamp: DateTime<Utc>,
+    // TODO(R4) Aircraft Nickname
+    // pub aircraft_nickname: String,
+
+    // TODO(R4) Estimated Dwell Time
+    // pub estimated_dwell_seconds: u32,
+
+    // TODO(R4) Parcels to deliver and acquire
+    // pub parcels_deliver: Vec<String>,
+    // pub parcels_acquire: Vec<String>,
 }
