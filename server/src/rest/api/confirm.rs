@@ -1,11 +1,12 @@
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::{ItineraryConfirm, ItineraryConfirmation};
+use crate::rest::rest_types::{ItineraryConfirm, ItineraryConfirmation};
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
-use svc_scheduler_client_grpc::grpc::ConfirmItineraryRequest;
+use svc_scheduler_client_grpc::client::ConfirmItineraryRequest;
+use svc_scheduler_client_grpc::service::Client;
 use svc_storage_client_grpc::resources::parcel::{Data as ParcelData, ParcelStatus};
-use svc_storage_client_grpc::ClientConnect;
+use svc_storage_client_grpc::SimpleClient;
 
 /// Confirm an itinerary
 /// This will confirm an itinerary with the scheduler, and will register the parcel with
@@ -23,7 +24,7 @@ use svc_storage_client_grpc::ClientConnect;
     )
 )]
 pub async fn confirm_itinerary(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryConfirm>,
 ) -> Result<Json<ItineraryConfirmation>, StatusCode> {
     rest_debug!("(confirm_itinerary) entry.");
@@ -37,19 +38,11 @@ pub async fn confirm_itinerary(
     //
     // Confirm itinerary with scheduler
     //
-    let Some(mut client) = grpc_clients.scheduler.get_client().await else {
-        let error_msg = "svc-scheduler unavailable.".to_string();
-        rest_error!("(confirm_itinerary) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    // Make request, process response
     let data = ConfirmItineraryRequest {
         id: payload.id,
-        user_id: payload.user_id,
+        user_id: payload.user_id.clone(),
     };
-    let request = tonic::Request::new(data);
-    let response = match client.confirm_itinerary(request).await {
+    let response = match grpc_clients.scheduler.confirm_itinerary(data).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-scheduler error.".to_string();
@@ -69,20 +62,14 @@ pub async fn confirm_itinerary(
     //
     let itinerary_id = response.id;
     let data = ParcelData {
-        itinerary_id: itinerary_id.clone(),
         status: ParcelStatus::Notdroppedoff as i32,
+        weight_grams: 0,
+        user_id: payload.user_id,
     };
 
     // TODO(R4): Push to queue, in case this call fails need a retry mechanism
-    let request = tonic::Request::new(data);
-    let Ok(mut client) = grpc_clients.storage.parcel.get_client().await else {
-        let error_msg = "svc-parcel-storage unavailable.".to_string();
-        rest_error!("(confirm_itinerary) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     // Make request, process response
-    let response = match client.insert(request).await {
+    let response = match grpc_clients.storage.parcel.insert(data).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-parcel-storage error.".to_string();

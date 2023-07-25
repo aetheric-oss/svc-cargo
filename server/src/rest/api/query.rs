@@ -1,10 +1,10 @@
+use super::rest_types::{Landing, LandingsQuery, LandingsResponse, MAX_LANDINGS_TO_RETURN};
+use super::rest_types::{Vertiport, VertiportsQuery};
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::{Landing, LandingsQuery, LandingsResponse, MAX_LANDINGS_TO_RETURN};
-use crate::rest_types::{Vertiport, VertiportsQuery};
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
-use svc_storage_client_grpc::{AdvancedSearchFilter, ClientConnect, SortOption, SortOrder};
+use svc_storage_client_grpc::{AdvancedSearchFilter, SimpleClient, SortOption, SortOrder};
 
 /// Get Regional Vertiports
 #[utoipa::path(
@@ -41,17 +41,9 @@ pub async fn query_vertiports(
         (payload.longitude + degree_range).to_string(),
         (payload.longitude - degree_range).to_string(),
     );
-    let request = tonic::Request::new(filter);
-
-    // Get Client
-    let Ok(mut client) = grpc_clients.storage.vertiport.get_client().await else {
-        let error_msg = "svc-storage unavailable.".to_string();
-        rest_error!("(query_vertiports) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
 
     // Make request, process response
-    let Ok(response) = client.search(request).await else {
+    let Ok(response) = grpc_clients.storage.vertiport.search(filter).await else {
         let error_msg = "error response from svc-storage.".to_string();
         rest_error!("(query_vertiports) {}.", &error_msg);
         return Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -132,15 +124,6 @@ pub async fn query_landings(
     };
 
     //
-    // Get client
-    //
-    let Ok(mut client) = grpc_clients.storage.flight_plan.get_client().await else {
-        let error_msg = "svc-storage unavailable.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    //
     // Request flight plans
     //
     let mut filter = AdvancedSearchFilter::search_equals(
@@ -158,8 +141,7 @@ pub async fn query_landings(
         sort_order: SortOrder::Asc as i32,
     }];
 
-    let request = tonic::Request::new(filter);
-    let response = match client.search(request).await {
+    let response = match grpc_clients.storage.flight_plan.search(filter).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();

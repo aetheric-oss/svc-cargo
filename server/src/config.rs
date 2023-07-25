@@ -14,33 +14,142 @@ pub struct Config {
     pub docker_port_grpc: u16,
     /// port to be used for REST server
     pub docker_port_rest: u16,
-    /// port to be used for the storage client
-    pub storage_port_grpc: u16,
-    /// host to be used for the storage client
+    /// host of storage server
     pub storage_host_grpc: String,
-    /// port to be used for the pricing client
-    pub pricing_port_grpc: u16,
-    /// host to be used for the pricing client
+    /// port of storage server
+    pub storage_port_grpc: u16,
+    /// host of pricing server
     pub pricing_host_grpc: String,
-    /// port to be used for the scheduler client
-    pub scheduler_port_grpc: u16,
-    /// host to be used for the scheduler client
+    /// port of pricing server
+    pub pricing_port_grpc: u16,
+    /// host of scheduler server
     pub scheduler_host_grpc: String,
+    /// port of scheduler server
+    pub scheduler_port_grpc: u16,
     /// path to log configuration YAML file
     pub log_config: String,
-    /// Rate limit - requests per second
-    pub request_limit_per_second: u8,
+    /// Rate limit - requests per second for REST requests
+    pub rest_request_limit_per_second: u8,
+    /// Enforces a limit on the concurrent number of requests the underlying service can handle
+    pub rest_concurrency_limit_per_service: u8,
+    /// Full url (including port number) to be allowed as request origin for
+    /// REST requests
+    pub rest_cors_allowed_origin: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        log::warn!("Creating Config object with default values.");
+        Self::new()
+    }
 }
 
 impl Config {
+    /// Default values for Config
+    pub fn new() -> Self {
+        Config {
+            docker_port_grpc: 50051,
+            docker_port_rest: 8000,
+            storage_port_grpc: 50051,
+            storage_host_grpc: "localhost".to_owned(),
+            pricing_port_grpc: 50051,
+            pricing_host_grpc: "localhost".to_owned(),
+            scheduler_port_grpc: 50051,
+            scheduler_host_grpc: "localhost".to_owned(),
+            log_config: String::from("log4rs.yaml"),
+            rest_request_limit_per_second: 2,
+            rest_concurrency_limit_per_service: 5,
+            rest_cors_allowed_origin: String::from("http://localhost:3000"),
+        }
+    }
+
     /// Create a new `Config` object using environment variables
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn try_from_env() -> Result<Self, ConfigError> {
         // read .env file if present
         dotenv().ok();
+        let default_config = Config::default();
 
         config::Config::builder()
+            .set_default("docker_port_grpc", default_config.docker_port_grpc)?
+            .set_default("docker_port_rest", default_config.docker_port_rest)?
+            .set_default("log_config", default_config.log_config)?
+            .set_default(
+                "rest_concurrency_limit_per_service",
+                default_config.rest_concurrency_limit_per_service,
+            )?
+            .set_default(
+                "rest_request_limit_per_seconds",
+                default_config.rest_request_limit_per_second,
+            )?
+            .set_default(
+                "rest_cors_allowed_origin",
+                default_config.rest_cors_allowed_origin,
+            )?
             .add_source(Environment::default().separator("__"))
             .build()?
             .try_deserialize()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_from_default() {
+        let config = Config::default();
+
+        assert_eq!(config.docker_port_grpc, 50051);
+        assert_eq!(config.docker_port_rest, 8000);
+        assert_eq!(config.storage_port_grpc, 50051);
+        assert_eq!(config.storage_host_grpc, String::from("localhost"));
+        assert_eq!(config.pricing_port_grpc, 50051);
+        assert_eq!(config.pricing_host_grpc, String::from("localhost"));
+        assert_eq!(config.scheduler_port_grpc, 50051);
+        assert_eq!(config.scheduler_host_grpc, String::from("localhost"));
+        assert_eq!(config.log_config, String::from("log4rs.yaml"));
+        assert_eq!(config.rest_concurrency_limit_per_service, 5);
+        assert_eq!(config.rest_request_limit_per_second, 2);
+        assert_eq!(
+            config.rest_cors_allowed_origin,
+            String::from("http://localhost:3000")
+        );
+    }
+    #[test]
+    fn test_config_from_env() {
+        std::env::set_var("DOCKER_PORT_GRPC", "6789");
+        std::env::set_var("DOCKER_PORT_REST", "9876");
+        std::env::set_var("STORAGE_HOST_GRPC", "test_host_grpc");
+        std::env::set_var("STORAGE_PORT_GRPC", "12345");
+        std::env::set_var("PRICING_HOST_GRPC", "test_host_grpc");
+        std::env::set_var("PRICING_PORT_GRPC", "12345");
+        std::env::set_var("SCHEDULER_HOST_GRPC", "test_host_grpc");
+        std::env::set_var("SCHEDULER_PORT_GRPC", "12345");
+        std::env::set_var("LOG_CONFIG", "config_file.yaml");
+        std::env::set_var("REST_CONCURRENCY_LIMIT_PER_SERVICE", "255");
+        std::env::set_var("REST_REQUEST_LIMIT_PER_SECOND", "255");
+        std::env::set_var(
+            "REST_CORS_ALLOWED_ORIGIN",
+            "https://allowed.origin.host:443",
+        );
+        let config = Config::try_from_env();
+        assert!(config.is_ok());
+        let config = config.unwrap();
+
+        assert_eq!(config.docker_port_grpc, 6789);
+        assert_eq!(config.docker_port_rest, 9876);
+        assert_eq!(config.storage_host_grpc, String::from("test_host_grpc"));
+        assert_eq!(config.storage_port_grpc, 12345);
+        assert_eq!(config.pricing_host_grpc, String::from("test_host_grpc"));
+        assert_eq!(config.pricing_port_grpc, 12345);
+        assert_eq!(config.scheduler_host_grpc, String::from("test_host_grpc"));
+        assert_eq!(config.scheduler_port_grpc, 12345);
+        assert_eq!(config.log_config, String::from("config_file.yaml"));
+        assert_eq!(config.rest_concurrency_limit_per_service, 255);
+        assert_eq!(config.rest_request_limit_per_second, 255);
+        assert_eq!(
+            config.rest_cors_allowed_origin,
+            String::from("https://allowed.origin.host:443")
+        );
     }
 }

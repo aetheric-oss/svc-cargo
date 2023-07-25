@@ -3,7 +3,8 @@ pub mod macros;
 pub mod api;
 pub mod server;
 
-use crate::rest_types;
+use api::*;
+
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -50,4 +51,14 @@ pub fn generate_openapi_spec(target: &str) -> Result<(), Box<dyn std::error::Err
     std::fs::write(target, output).expect("(ERROR) unable to write json string to file.");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_openapi_spec_generation() {
+        assert!(generate_openapi_spec("/tmp/generate_openapi_spec.out").is_ok());
+    }
 }

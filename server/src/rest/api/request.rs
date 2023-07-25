@@ -1,57 +1,55 @@
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::{FlightLeg, FlightRequest, Itinerary};
+use crate::rest::rest_types::{FlightLeg, FlightRequest, Itinerary};
 use axum::{extract::Extension, Json};
 use chrono::Utc;
+use geo::prelude::*;
 use hyper::StatusCode;
-use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
+use lib_common::time::timestamp_to_datetime;
 
 //
 // Other Service Dependencies
 //
-use svc_pricing_client::pricing_grpc::{
+use lib_common::grpc::Client;
+use svc_pricing_client_grpc::client::{
     pricing_request::ServiceType, PricingRequest, PricingRequests,
 };
-use svc_scheduler_client_grpc::grpc::{
-    Itinerary as SchedulerItinerary, QueryFlightPlan, QueryFlightRequest,
-};
+use svc_pricing_client_grpc::service::Client as PricingServiceClient;
+use svc_scheduler_client_grpc::client::{Itinerary as SchedulerItinerary, QueryFlightRequest};
+use svc_scheduler_client_grpc::service::Client as SchedulerServiceClient;
+use svc_storage_client_grpc::resources::flight_plan;
 
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
 /// Parses the incoming flight plans for information the customer wants
-fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
-    let Some(prost_time) = plan.estimated_departure.clone() else {
+fn parse_flight(plan: &flight_plan::Object) -> Option<FlightLeg> {
+    let Some(data) = plan.data else {
+        let error_msg = "no data in flight plan; discarding.";
+        rest_error!("(parse_flight) {}", &error_msg);
+        return None;
+    };
+
+    let Some(time_depart) = data.scheduled_departure.clone() else {
         let error_msg = "no departure time in flight plan; discarding.";
         rest_error!("(parse_flight) {}", &error_msg);
         return None;
     };
 
-    let Some(time_depart) = timestamp_to_datetime(&prost_time) else {
-        let error_msg = "can't convert prost timestamp to datetime.";
+    let Some(time_arrive) = data.scheduled_arrival.clone() else {
+        let error_msg = "no scheduled arrival time in flight plan; discarding.";
         rest_error!("(parse_flight) {}", &error_msg);
         return None;
     };
 
-    let Some(prost_time) = plan.estimated_arrival.clone() else {
-        let error_msg = "(parse_flight) no arrival time in flight plan; discarding.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
-
-    let Some(time_arrive) = timestamp_to_datetime(&prost_time) else {
-        let error_msg = "can't convert prost timestamp to datetime.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
-
+    let path: geo::LineString = data.path?.into();
     Some(FlightLeg {
         flight_plan_id: plan.id.clone(),
-        vertiport_depart_id: plan.vertiport_depart_id.to_string(),
-        vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
-        timestamp_depart: time_depart,
-        timestamp_arrive: time_arrive,
-        distance_m: plan.estimated_distance as f32,
+        vertiport_depart_id: data.departure_vertiport_id?.to_string(),
+        vertiport_arrive_id: data.destination_vertiport_id?.to_string(),
+        timestamp_depart: time_depart.into(),
+        timestamp_arrive: time_arrive.into(),
+        distance_m: path.geodesic_length() as f32,
         base_pricing: None,
         currency_type: None,
     })
@@ -123,13 +121,7 @@ pub async fn request_flight(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
-            let error_msg = "unable to convert datetime to timestamp.".to_string();
-            rest_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        };
-
-        flight_query.latest_arrival_time = Some(ts);
+        flight_query.latest_arrival_time = Some(window.timestamp_max.into());
     }
 
     if let Some(window) = payload.time_depart_window {
@@ -139,13 +131,7 @@ pub async fn request_flight(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
-            let error_msg = "unable to convert datetime to timestamp.".to_string();
-            rest_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        };
-
-        flight_query.earliest_departure_time = Some(ts);
+        flight_query.earliest_departure_time = Some(window.timestamp_max.into());
     }
 
     if flight_query.earliest_departure_time.is_none() && flight_query.latest_arrival_time.is_none()
@@ -159,25 +145,11 @@ pub async fn request_flight(
     // GRPC Request
     //
 
-    let Some(mut scheduler_client) = grpc_clients.scheduler.get_client().await else {
-        let error_msg = "svc-scheduler unavailable.".to_string();
-        rest_error!("(query_flight) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    let Some(mut pricing_client) = grpc_clients.pricing.get_client().await else {
-        let error_msg = "svc-pricing unavailable.".to_string();
-        rest_error!("(query_flight) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    let request = tonic::Request::new(flight_query);
-    let response = scheduler_client.query_flight(request).await;
+    let response = grpc_clients.scheduler.query_flight(flight_query).await;
     let Ok(response) = response else {
         let error_msg = "svc-scheduler error.".to_string();
         rest_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
         rest_error!("(query_flight) invalidating svc-scheduler client.");
-        grpc_clients.scheduler.invalidate().await;
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
@@ -233,8 +205,7 @@ pub async fn request_flight(
         }
 
         // Make request, process response
-        let request = tonic::Request::new(pricing_requests);
-        let response = pricing_client.get_pricing(request).await;
+        let response = grpc_clients.pricing.get_pricing(pricing_requests).await;
 
         let Ok(response) = response else {
             let error_msg = "svc-pricing error.".to_string();
@@ -260,7 +231,6 @@ pub async fn request_flight(
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]
@@ -268,25 +238,9 @@ mod tests {
         let depart_time = datetime_to_timestamp(&Utc::now());
         assert!(depart_time.is_some());
 
-        let fp = QueryFlightPlan {
+        let fp = flight_plan::Object {
             id: "".to_string(),
-            pilot_id: "".to_string(),
-            vehicle_id: "".to_string(),
-            cargo: [123].to_vec(),
-            weather_conditions: "Sunny, no wind :)".to_string(),
-            vertiport_depart_id: "".to_string(),
-            pad_depart_id: "".to_string(),
-            vertiport_arrive_id: "".to_string(),
-            pad_arrive_id: "".to_string(),
-            estimated_departure: depart_time.clone(),
-            estimated_arrival: depart_time,
-            actual_departure: None,
-            actual_arrival: None,
-            flight_release_approval: None,
-            flight_plan_submitted: None,
-            flight_status: 0,
-            flight_priority: 0,
-            estimated_distance: 1000,
+            data: Some(light_plan::mock::get_future_data_obj()),
         };
 
         let Some(flight_plan) = parse_flight(&fp) else {

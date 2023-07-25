@@ -1,3 +1,10 @@
+//! Implementation of REST APIs.
+
+/// Types Used in REST Messages
+pub mod rest_types {
+    include!("../../../../openapi/types.rs");
+}
+
 pub mod cancel;
 pub mod confirm;
 pub mod health;

@@ -1,5 +1,6 @@
 [package]
 description = "Cargo Service GRPC and REST servers"
+keywords    = ["vtol", "server", "grpc", "rest", "cargo"] # max 5
 name        = "svc-cargo"
 version     = "0.9.1-develop.3"
 
@@ -7,23 +8,39 @@ authors.workspace      = true
 categories.workspace   = true
 edition.workspace      = true
 homepage.workspace     = true
-keywords.workspace     = true
 license-file.workspace = true
 repository.workspace   = true
 
 [features]
-vendored-openssl = ['openssl/vendored']
+default          = []
+dev              = ["mock"]
+test_util        = ["mock", "stub_backends"]
+vendored-openssl = ["openssl/vendored"]
+# Will add a 'mock' module for the enabled resources, providing access to mock data generation functions
+mock = ["svc-storage-client-grpc/mock"]
+# Will use a stubbed backend connection, only use for tests!
+stub_backends = [
+  "svc-storage-client-grpc/stub_client",
+  "svc-pricing-client-grpc/stub_client",
+  "svc-scheduler-client-grpc/stub_client",
+  "svc-scheduler-client-grpc/stub_backends",
+]
+# Will implement stub functions for the server, only use for tests!
+stub_server = ["test_util"]
+# Only added to support client-grpc feature when running tests
+stub_client = ["stub_backends"]
 
 [dependencies]
 anyhow       = "1.0"
 axum         = "0.6"
 cargo-husky  = "1"
+cfg-if       = "1.0"
 chrono       = { version = "0.4", features = ["serde"] }
 clap         = { version = "4.0", features = ["derive"] }
 config       = "0.13"
 dotenv       = "0.15"
-env_logger   = "0.10"
 futures      = "0.3"
+geo          = { version = "0.25" }
 hyper        = "0.14"
 log          = "0.4"
 openssl      = "0.10"
@@ -32,21 +49,13 @@ prost-build  = "0.11"
 prost-types  = "0.11"
 serde        = "1.0"
 serde_json   = "1.0"
-tokio        = { version = "1.20", features = ["full"] }
+tokio        = { version = "1.28", features = ["full"] }
 tokio-util   = "0.7"
 tonic        = "0.8"
 tonic-health = "0.8"
 tower        = { version = "0.4", features = ["limit"] }
-tower-http   = { version = "0.4", features = ["cors"] }
-uuid         = { version = "1.2", features = ["v4"] }
-
-[dependencies.svc-scheduler-client-grpc]
-git = "https://github.com/Arrow-air/svc-scheduler"
-tag = "v0.2.5-develop.16"
-
-[dependencies.svc-pricing-client-grpc]
-git = "https://github.com/Arrow-air/svc-pricing"
-tag = "v0.5.0"
+tower-http   = { version = "0.4", features = ["cors", "trace"] }
+uuid         = { version = "1.2", features = ["serde"] }
 
 [dependencies.svc-storage-client-grpc]
 features = [
@@ -58,18 +67,19 @@ features = [
   "flight_plan",
 ]
 git = "https://github.com/Arrow-air/svc-storage"
-tag = "v0.10.1-develop.15"
+tag = "v0.10.1-develop.20"
+
+[dependencies.svc-scheduler-client-grpc]
+git = "https://github.com/Arrow-air/svc-scheduler"
+tag = "v0.3.1-develop.0"
+
+[dependencies.svc-pricing-client-grpc]
+git = "https://github.com/Arrow-air/svc-pricing"
+tag = "v0.5.1-develop.0"
 
 [dependencies.lib-common]
-git = "https://github.com/Arrow-air/lib-common"
-tag = "v0.1.0"
-
-[build-dependencies]
-tonic-build = "0.8"
-
-[dependencies.utoipa]
-features = ["axum_extras", "chrono"]
-version  = "3.2"
+git = "https://github.com/Arrow-air/lib-common.git"
+tag = "v0.1.1-develop.2"
 
 [dependencies.log4rs]
 features = [
@@ -79,3 +89,23 @@ features = [
   "gzip",
 ]
 version = "1.2"
+
+[dependencies.utoipa]
+features = ["axum_extras", "chrono"]
+version  = "3.3"
+
+[dev-dependencies]
+logtest = "2.0"
+
+[dev-dependencies.cargo-husky]
+default-features = false          # Disable features which are enabled by default
+features         = ["user-hooks"]
+version          = "1"
+
+# Make sure we enable the required modules when running tests
+[dev-dependencies.svc-cargo]
+features = ["dev"]
+path     = "."
+
+[build-dependencies]
+tonic-build = "0.8"
