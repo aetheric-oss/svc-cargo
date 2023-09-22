@@ -25,7 +25,12 @@ version  = "2.2"
 [dependencies.lib-common]
 features = ["grpc"]
 git      = "https://github.com/Arrow-air/lib-common.git"
-tag      = "v0.1.1-develop.2"
+tag      = "v0.2.0"
+
+[dependencies.svc-scheduler-client-grpc]
+git = "https://github.com/Arrow-air/svc-scheduler"
+# tag = "v0.2.5-develop.16"
+branch = "am-smith/dw-1103/use-svc-gis-for-routin"
 
 [[example]]
 name = "rest"

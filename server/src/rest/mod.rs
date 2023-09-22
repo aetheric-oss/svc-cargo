@@ -4,6 +4,7 @@ pub mod api;
 pub mod server;
 
 use crate::rest_types;
+use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -32,7 +33,8 @@ use utoipa::OpenApi;
             rest_types::TimeWindow,
             rest_types::Landing,
             rest_types::LandingsQuery,
-            rest_types::LandingsResponse
+            rest_types::LandingsResponse,
+            GeoPoint
         )
     ),
     tags(

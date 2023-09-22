@@ -34,7 +34,7 @@ pub struct Config {
 
 impl Config {
     /// Create a new `Config` object using environment variables
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn try_from_env() -> Result<Self, ConfigError> {
         // read .env file if present
         dotenv().ok();
 

@@ -1,100 +1,32 @@
-pub use svc_pricing_client::pricing_grpc::pricing_client::PricingClient;
-pub use svc_scheduler_client_grpc::grpc::rpc_service_client::RpcServiceClient as SchedulerClient;
-pub use svc_storage_client_grpc::{ParcelClient, ParcelScanClient, VertiportClient};
-
-use futures::lock::Mutex;
-use std::sync::Arc;
-pub use tonic::transport::Channel;
-
+use lib_common::grpc::{Client, GrpcClient};
+pub use svc_pricing_client_grpc::client::rpc_service_client::RpcServiceClient as PricingClient;
+pub use svc_scheduler_client_grpc::client::rpc_service_client::RpcServiceClient as SchedulerClient;
 use svc_storage_client_grpc::Clients;
+pub use tonic::transport::Channel;
 
 #[derive(Clone, Debug)]
 pub struct GrpcClients {
+    /// All clients enabled from the svc_storage_grpc_client module
     pub storage: Clients,
+    /// A GrpcClient provided by the svc_scheduler_grpc_client module
     pub scheduler: GrpcClient<SchedulerClient<Channel>>,
+    /// A GrpcClient provided by the svc_pricing_grpc_client module
     pub pricing: GrpcClient<PricingClient<Channel>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct GrpcClient<T> {
-    inner: Arc<Mutex<Option<T>>>,
-    address: String,
-}
-
-impl<T> GrpcClient<T> {
-    pub async fn invalidate(&mut self) {
-        let arc = Arc::clone(&self.inner);
-        let mut client = arc.lock().await;
-        *client = None;
-    }
-
-    pub fn new(host: &str, port: u16) -> Self {
-        let opt: Option<T> = None;
-        GrpcClient {
-            inner: Arc::new(Mutex::new(opt)),
-            address: format!("http://{host}:{port}"),
-        }
-    }
-}
-
-macro_rules! grpc_client {
-    ( $client: ident, $name: expr ) => {
-        impl GrpcClient<$client<Channel>> {
-            pub async fn get_client(&mut self) -> Option<$client<Channel>> {
-                grpc_info!("(get_client) storage::{} entry.", $name);
-
-                let arc = Arc::clone(&self.inner);
-
-                // if already connected, return the client
-                let client = arc.lock().await;
-                if client.is_some() {
-                    return client.clone();
-                }
-
-                grpc_info!(
-                    "(grpc) connecting to {} server at {}.",
-                    $name,
-                    self.address.clone()
-                );
-                let result = $client::connect(self.address.clone()).await;
-                match result {
-                    Ok(client) => {
-                        grpc_info!(
-                            "(grpc) success: connected to {} server at {}.",
-                            $name,
-                            self.address.clone()
-                        );
-                        Some(client)
-                    }
-                    Err(e) => {
-                        grpc_error!(
-                            "(grpc) couldn't connect to {} server at {}; {}.",
-                            $name,
-                            self.address,
-                            e
-                        );
-                        None
-                    }
-                }
-            }
-        }
-    };
-}
-
-grpc_client!(SchedulerClient, "scheduler");
-grpc_client!(PricingClient, "pricing");
-
 impl GrpcClients {
-    pub fn new(config: crate::config::Config) -> Self {
+    pub fn default(config: crate::config::Config) -> Self {
         GrpcClients {
             storage: Clients::new(config.storage_host_grpc, config.storage_port_grpc),
-            scheduler: GrpcClient::<SchedulerClient<Channel>>::new(
+            scheduler: GrpcClient::<SchedulerClient<Channel>>::new_client(
                 &config.scheduler_host_grpc,
                 config.scheduler_port_grpc,
+                "scheduler",
             ),
-            pricing: GrpcClient::<PricingClient<Channel>>::new(
+            pricing: GrpcClient::<PricingClient<Channel>>::new_client(
                 &config.pricing_host_grpc,
                 config.pricing_port_grpc,
+                "pricing",
             ),
         }
     }

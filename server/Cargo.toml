@@ -15,38 +15,43 @@ repository.workspace   = true
 vendored-openssl = ['openssl/vendored']
 
 [dependencies]
-anyhow       = "1.0"
-axum         = "0.6"
-cargo-husky  = "1"
-chrono       = { version = "0.4", features = ["serde"] }
-clap         = { version = "4.0", features = ["derive"] }
-config       = "0.13"
-dotenv       = "0.15"
-env_logger   = "0.10"
-futures      = "0.3"
-hyper        = "0.14"
-log          = "0.4"
-openssl      = "0.10"
-prost        = "0.11"
-prost-build  = "0.11"
-prost-types  = "0.11"
-serde        = "1.0"
-serde_json   = "1.0"
-tokio        = { version = "1.20", features = ["full"] }
-tokio-util   = "0.7"
-tonic        = "0.8"
-tonic-health = "0.8"
-tower        = { version = "0.4", features = ["limit"] }
-tower-http   = { version = "0.4", features = ["cors"] }
-uuid         = { version = "1.2", features = ["v4"] }
+anstyle       = "=1.0.0"
+anstyle-parse = "=0.2.0"
+anyhow        = "1.0"
+axum          = "0.6"
+cargo-husky   = "1"
+chrono        = { version = "0.4", features = ["serde"] }
+clap          = { version = "=4.3.24", features = ["derive"] }
+clap_lex      = "=0.5.0"
+config        = "0.13"
+dotenv        = "0.15"
+env_logger    = "0.10"
+futures       = "0.3"
+geo           = { version = "0.26", features = ["use-serde"] }
+hyper         = "0.14"
+log           = "0.4"
+openssl       = "0.10"
+prost         = "0.11"
+prost-build   = "0.11"
+prost-types   = "0.11"
+serde         = "1.0"
+serde_json    = "1.0"
+tokio         = { version = "1.20", features = ["full"] }
+tokio-util    = "0.7"
+tonic         = "0.8"
+tonic-health  = "0.8"
+tower         = { version = "0.4", features = ["limit"] }
+tower-http    = { version = "0.4", features = ["cors"] }
+uuid          = { version = "1.2", features = ["v4"] }
 
 [dependencies.svc-scheduler-client-grpc]
-git = "https://github.com/Arrow-air/svc-scheduler"
-tag = "v0.2.5-develop.16"
+branch = "am-smith/dw-1103/use-svc-gis-for-routin"
+git    = "https://github.com/Arrow-air/svc-scheduler.git"
+# tag = "v0.2.5-develop.16"
 
 [dependencies.svc-pricing-client-grpc]
 git = "https://github.com/Arrow-air/svc-pricing"
-tag = "v0.5.0"
+tag = "v0.5.1"
 
 [dependencies.svc-storage-client-grpc]
 features = [
@@ -58,11 +63,11 @@ features = [
   "flight_plan",
 ]
 git = "https://github.com/Arrow-air/svc-storage"
-tag = "v0.10.1-develop.15"
+tag = "v0.11.0"
 
 [dependencies.lib-common]
 git = "https://github.com/Arrow-air/lib-common"
-tag = "v0.1.0"
+tag = "v0.2.0"
 
 [build-dependencies]
 tonic-build = "0.8"

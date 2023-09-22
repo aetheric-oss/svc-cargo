@@ -1,8 +1,8 @@
 use crate::grpc::client::GrpcClients;
 use hyper::StatusCode;
+use svc_storage_client_grpc::prelude::*;
 use svc_storage_client_grpc::resources::vehicle::Data as VehicleData;
 use svc_storage_client_grpc::resources::vertipad::Data as VertipadData;
-use svc_storage_client_grpc::{ClientConnect, Id};
 use uuid::Uuid;
 
 /// Don't allow large UUID strings
@@ -24,17 +24,11 @@ pub async fn get_vertipad_details(
     vertipad_id: &str,
     grpc_clients: &GrpcClients,
 ) -> Result<VertipadData, StatusCode> {
-    let Ok(mut vertipad_client) = grpc_clients.storage.vertipad.get_client().await else {
-        let error_msg = "svc-storage unavailable.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     let request = Id {
         id: vertipad_id.to_string(),
     };
 
-    let response = match vertipad_client.get_by_id(request).await {
+    let response = match grpc_clients.storage.vertipad.get_by_id(request).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();
@@ -56,17 +50,11 @@ pub async fn get_vehicle_details(
     vehicle_id: &str,
     grpc_clients: &GrpcClients,
 ) -> Result<VehicleData, StatusCode> {
-    let Ok(mut client) = grpc_clients.storage.vehicle.get_client().await else {
-        let error_msg = "svc-storage unavailable.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     let request = Id {
         id: vehicle_id.to_string(),
     };
 
-    let response = match client.get_by_id(request).await {
+    let response = match grpc_clients.storage.vehicle.get_by_id(request).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error, could not get by id.".to_string();

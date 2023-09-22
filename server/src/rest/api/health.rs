@@ -1,7 +1,7 @@
 use crate::grpc::client::GrpcClients;
 use axum::extract::Extension;
 use hyper::StatusCode;
-use svc_storage_client_grpc::ClientConnect;
+use lib_common::grpc::ClientConnect;
 
 #[utoipa::path(
     get,
@@ -13,7 +13,7 @@ use svc_storage_client_grpc::ClientConnect;
     )
 )]
 pub async fn health_check(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(grpc_clients): Extension<GrpcClients>,
 ) -> Result<(), StatusCode> {
     rest_debug!("(health_check) entry.");
 
@@ -55,16 +55,14 @@ pub async fn health_check(
         ok = false;
     };
 
-    let result = grpc_clients.pricing.get_client().await;
-    if result.is_none() {
-        let error_msg = "svc-pricing unavailable.".to_string();
-        rest_error!("(health_check) {}", &error_msg);
-        ok = false;
-    };
+    // if grpc_clients.pricing.get_client().await.is_err() {
+    //     let error_msg = "svc-pricing client unavailable.".to_string();
+    //     rest_error!("(health_check) {}", &error_msg);
+    //     ok = false;
+    // };
 
-    let result = grpc_clients.scheduler.get_client().await;
-    if result.is_none() {
-        let error_msg = "svc-scheduler unavailable.".to_string();
+    if grpc_clients.scheduler.get_client().await.is_err() {
+        let error_msg = "svc-scheduler client unavailable.".to_string();
         rest_error!("(health_check) {}", &error_msg);
         ok = false;
     };

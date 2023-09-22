@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 /// Types used for REST communication with the svc-cargo server
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
+use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
 
 /// Don't allow overly large numbers of landings to be returned
 pub const MAX_LANDINGS_TO_RETURN: u32 = 50;
@@ -86,8 +87,11 @@ pub struct FlightLeg {
     /// Estimated arrival timestamp
     pub timestamp_arrive: DateTime<Utc>,
 
+    /// The path of the flight plan
+    pub path: Vec<GeoPoint>,
+
     /// The estimated trip distance in meters
-    pub distance_m: f32,
+    pub distance_meters: f32,
 
     /// The currency type, e.g. USD, EUR
     pub currency_type: Option<String>,
@@ -104,6 +108,10 @@ pub struct ItineraryConfirm {
 
     /// User ID
     pub user_id: String,
+
+    /// Weight of Cargo
+    /// TODO(R4): this is a little clunky to re-issue the weight here
+    pub weight_grams: u32,
 }
 
 /// UUIDs of the confirmed flight

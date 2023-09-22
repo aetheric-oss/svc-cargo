@@ -153,6 +153,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Arbitrary UUID
             id: Uuid::new_v4().to_string(),
             user_id: Uuid::new_v4().to_string(),
+            weight_grams: 1,
         };
 
         let Ok(data_str) = serde_json::to_string(&data) else {

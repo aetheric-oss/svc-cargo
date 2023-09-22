@@ -40,8 +40,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("(svc-cargo) server startup.");
 
     // Expect environment variables
-    let config = match config::Config::from_env() {
-        Ok(c) => c,
+    let config = match config::Config::try_from_env() {
+        Ok(config) => config,
         Err(e) => {
             println!("(config) could not parse config. {}", e);
             panic!();

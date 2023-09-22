@@ -18,7 +18,7 @@ pub async fn server(config: crate::config::Config) {
     let rate_limit = config.request_limit_per_second as u64;
 
     // Wait for other GRPC Servers
-    let grpc_clients = GrpcClients::new(config);
+    let grpc_clients = GrpcClients::default(config);
 
     let app = Router::new()
         .route("/health", routing::get(api::health::health_check))

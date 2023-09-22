@@ -21,10 +21,10 @@ impl RpcService for ServiceImpl {
         &self,
         _request: tonic::Request<grpc_server::ReadyRequest>,
     ) -> Result<tonic::Response<grpc_server::ReadyResponse>, tonic::Status> {
-        grpc_info!("is_ready() enter");
+        grpc_info!("(is_ready) enter.");
         let response = grpc_server::ReadyResponse { ready: true };
 
-        grpc_info!("is_ready() exit");
+        grpc_info!("(is_ready) exit.");
         Ok(tonic::Response::new(response))
     }
 }

@@ -3,8 +3,8 @@ use crate::grpc::client::GrpcClients;
 use crate::rest_types::ItineraryCancel;
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
-use svc_scheduler_client_grpc::grpc::Id as ResourceId;
-use svc_storage_client_grpc::{AdvancedSearchFilter, ClientConnect, Id};
+use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
+use svc_storage_client_grpc::prelude::*;
 
 /// Cancel a Flight
 #[utoipa::path(
@@ -20,7 +20,7 @@ use svc_storage_client_grpc::{AdvancedSearchFilter, ClientConnect, Id};
     request_body = ItineraryCancel
 )]
 pub async fn cancel_itinerary(
-    Extension(mut grpc_clients): Extension<GrpcClients>,
+    Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCancel>,
 ) -> Result<(), StatusCode> {
     rest_debug!("(cancel_itinerary) entry.");
@@ -31,19 +31,14 @@ pub async fn cancel_itinerary(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Get Client
-    let client_option = grpc_clients.scheduler.get_client().await;
-    let Some(mut client) = client_option else {
-        let error_msg = "svc-scheduler unavailable.".to_string();
-        rest_error!("(cancel_itinerary) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     // Make request, process response
-    let request = tonic::Request::new(ResourceId {
-        id: itinerary_id.clone(),
-    });
-    let response = match client.cancel_itinerary(request).await {
+    let response = match grpc_clients
+        .scheduler
+        .cancel_itinerary(svc_scheduler_client_grpc::client::Id {
+            id: itinerary_id.clone(),
+        })
+        .await
+    {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-scheduler request fail.".to_string();
@@ -63,16 +58,10 @@ pub async fn cancel_itinerary(
     //
     // Get parcel from id
     //
-    let Ok(mut client) = grpc_clients.storage.parcel.get_client().await else {
-        let error_msg = "svc-parcel-storage unavailable.".to_string();
-        rest_error!("(cancel_itinerary) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     let filter =
         AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.clone());
 
-    let list = match client.search(filter).await {
+    let list = match grpc_clients.storage.parcel.search(filter).await {
         Ok(response) => response.into_inner().list,
         Err(e) => {
             let error_msg = "svc-parcel-storage error.".to_string();
@@ -84,20 +73,18 @@ pub async fn cancel_itinerary(
     // An itinerary might have multiple parcels
     // TODO(R4): Push these onto a queue in case any one fails
     let mut ok = true;
-    for parcel in list {
-        let request = tonic::Request::new(Id { id: parcel.id });
-        match client.delete(request).await {
-            Ok(_) => {
-                // Delete activity currently returns Empty
-                // response.into_inner()
-            }
-            Err(e) => {
+    for parcel in list.into_iter() {
+        let _ = grpc_clients
+            .storage
+            .parcel
+            .delete(Id { id: parcel.id })
+            .await
+            .map_err(|e| {
                 let error_msg = "svc-parcel-storage error.".to_string();
                 rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
                 // Still try to delete other parcels
                 ok = false;
-            }
-        };
+            });
     }
 
     if !ok {

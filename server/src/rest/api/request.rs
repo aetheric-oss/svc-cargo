@@ -2,59 +2,125 @@ use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use crate::rest_types::{FlightLeg, FlightRequest, Itinerary};
 use axum::{extract::Extension, Json};
-use chrono::Utc;
+use chrono::{Duration, Utc};
+use geo::HaversineDistance;
 use hyper::StatusCode;
-use lib_common::time::{datetime_to_timestamp, timestamp_to_datetime};
+use lib_common::grpc::Client;
 
 //
 // Other Service Dependencies
 //
-use svc_pricing_client::pricing_grpc::{
+use svc_pricing_client_grpc::client::{
     pricing_request::ServiceType, PricingRequest, PricingRequests,
 };
-use svc_scheduler_client_grpc::grpc::{
-    Itinerary as SchedulerItinerary, QueryFlightPlan, QueryFlightRequest,
+use svc_pricing_client_grpc::service::Client as ServiceClient;
+use svc_scheduler_client_grpc::client::{Itinerary as SchedulerItinerary, QueryFlightRequest};
+use svc_scheduler_client_grpc::prelude::scheduler_storage::{
+    flight_plan::Object as FlightPlanObject, GeoPoint,
 };
+use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
-/// Parses the incoming flight plans for information the customer wants
-fn parse_flight(plan: &QueryFlightPlan) -> Option<FlightLeg> {
-    let Some(prost_time) = plan.estimated_departure.clone() else {
-        let error_msg = "no departure time in flight plan; discarding.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum FlightPlanError {
+    InvalidDepartureTime,
+    InvalidArrivalTime,
+    InvalidData,
+    InvalidPath,
+}
 
-    let Some(time_depart) = timestamp_to_datetime(&prost_time) else {
-        let error_msg = "can't convert prost timestamp to datetime.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
+/// Gets the total distance of a path in meters
+/// TODO(R4): Temporary function to convert path to distance, until svc-storage is updated with it
+fn get_distance_meters(path: &[GeoPoint]) -> Result<f32, FlightPlanError> {
+    let mut distance: f64 = 0.0;
+    if path.len() < 2 {
+        rest_error!(
+            "(get_distance_meters) path too short: {} leg(s).",
+            path.len()
+        );
+        return Err(FlightPlanError::InvalidPath);
+    }
 
-    let Some(prost_time) = plan.estimated_arrival.clone() else {
-        let error_msg = "(parse_flight) no arrival time in flight plan; discarding.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
+    let mut it = path.windows(2);
+    while let Some(pair) = it.next() {
+        let (p1, p2) = (
+            geo::point!(
+                x: pair[0].longitude,
+                y: pair[0].latitude
+            ),
+            geo::point!(
+                x: pair[1].longitude,
+                y: pair[1].latitude
+            ),
+        );
 
-    let Some(time_arrive) = timestamp_to_datetime(&prost_time) else {
-        let error_msg = "can't convert prost timestamp to datetime.";
-        rest_error!("(parse_flight) {}", &error_msg);
-        return None;
-    };
+        distance += p1.haversine_distance(&p2);
+    }
 
-    Some(FlightLeg {
-        flight_plan_id: plan.id.clone(),
-        vertiport_depart_id: plan.vertiport_depart_id.to_string(),
-        vertiport_arrive_id: plan.vertiport_arrive_id.to_string(),
-        timestamp_depart: time_depart,
-        timestamp_arrive: time_arrive,
-        distance_m: plan.estimated_distance as f32,
-        base_pricing: None,
-        currency_type: None,
-    })
+    Ok(distance as f32)
+}
+
+impl TryFrom<FlightPlanObject> for FlightLeg {
+    type Error = FlightPlanError;
+
+    fn try_from(plan: FlightPlanObject) -> Result<Self, Self::Error> {
+        let msg_prefix = "(FlightLeg::try_from(FlightPlanObject))";
+
+        let Some(data) = plan.data.clone() else {
+            let error_msg = "no data in flight plan; discarding.";
+            rest_error!("{msg_prefix} {}", &error_msg);
+            return Err(FlightPlanError::InvalidData);
+        };
+
+        let Some(timestamp_depart) = data.scheduled_departure.clone() else {
+            let error_msg = "no departure time in flight plan; discarding.";
+            rest_error!("{msg_prefix} {}", &error_msg);
+            return Err(FlightPlanError::InvalidDepartureTime);
+        };
+
+        let Some(timestamp_arrive) = data.scheduled_arrival.clone() else {
+            let error_msg = "{msg_prefix} no arrival time in flight plan; discarding.";
+            rest_error!("{msg_prefix} {}", &error_msg);
+            return Err(FlightPlanError::InvalidArrivalTime);
+        };
+
+        let Some(vertiport_depart_id) = data.departure_vertiport_id.clone() else {
+            let error_msg = "{msg_prefix} no departure vertiport in flight plan; discarding.";
+            rest_error!("{msg_prefix} {}", &error_msg);
+            return Err(FlightPlanError::InvalidDepartureTime);
+        };
+
+        let Some(vertiport_arrive_id) = data.destination_vertiport_id.clone() else {
+            let error_msg = "{msg_prefix} no arrival vertiport in flight plan; discarding.";
+            rest_error!("{msg_prefix} {}", &error_msg);
+            return Err(FlightPlanError::InvalidArrivalTime);
+        };
+
+        let path = match data.path.clone() {
+            Some(path) => path.points,
+            _ => {
+                let error_msg = "{msg_prefix} no path in flight plan; discarding.";
+                rest_error!("{msg_prefix} {}", &error_msg);
+                return Err(FlightPlanError::InvalidData);
+            }
+        };
+
+        let distance_meters = get_distance_meters(&path)?;
+
+        Ok(FlightLeg {
+            flight_plan_id: plan.id,
+            vertiport_depart_id,
+            vertiport_arrive_id,
+            timestamp_depart: timestamp_depart.into(),
+            timestamp_arrive: timestamp_arrive.into(),
+            path,
+            distance_meters,
+            base_pricing: None,
+            currency_type: None,
+        })
+    }
 }
 
 // Get Available Flights
@@ -123,13 +189,10 @@ pub async fn request_flight(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
-            let error_msg = "unable to convert datetime to timestamp.".to_string();
-            rest_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        };
-
-        flight_query.latest_arrival_time = Some(ts);
+        // TODO(R4) - Rework this interface to be more intuitive
+        flight_query.earliest_departure_time =
+            Some((window.timestamp_min - Duration::hours(2)).into());
+        flight_query.latest_arrival_time = Some(window.timestamp_max.into());
     }
 
     if let Some(window) = payload.time_depart_window {
@@ -139,16 +202,12 @@ pub async fn request_flight(
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Some(ts) = datetime_to_timestamp(&window.timestamp_max) else {
-            let error_msg = "unable to convert datetime to timestamp.".to_string();
-            rest_error!("(query_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        };
-
-        flight_query.earliest_departure_time = Some(ts);
+        // TODO(R4) - Rework this interface to be more intuitive
+        flight_query.earliest_departure_time = Some(window.timestamp_min.into());
+        flight_query.latest_arrival_time = Some((window.timestamp_max + Duration::hours(2)).into());
     }
 
-    if flight_query.earliest_departure_time.is_none() && flight_query.latest_arrival_time.is_none()
+    if flight_query.earliest_departure_time.is_none() || flight_query.latest_arrival_time.is_none()
     {
         let error_msg = "invalid time window.".to_string();
         rest_error!("(query_flight) {}", &error_msg);
@@ -158,21 +217,7 @@ pub async fn request_flight(
     //
     // GRPC Request
     //
-
-    let Some(mut scheduler_client) = grpc_clients.scheduler.get_client().await else {
-        let error_msg = "svc-scheduler unavailable.".to_string();
-        rest_error!("(query_flight) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    let Some(mut pricing_client) = grpc_clients.pricing.get_client().await else {
-        let error_msg = "svc-pricing unavailable.".to_string();
-        rest_error!("(query_flight) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
-    let request = tonic::Request::new(flight_query);
-    let response = scheduler_client.query_flight(request).await;
+    let response = grpc_clients.scheduler.query_flight(flight_query).await;
     let Ok(response) = response else {
         let error_msg = "svc-scheduler error.".to_string();
         rest_error!("(query_flight) {} {:?}", &error_msg, response.unwrap_err());
@@ -189,25 +234,24 @@ pub async fn request_flight(
 
     // List of lists of flights
     let mut offerings: Vec<Itinerary> = vec![];
-    for itinerary in &itineraries {
-        let mut legs: Vec<FlightLeg> = vec![];
+    for itinerary in itineraries.into_iter() {
+        let id = itinerary.id.clone();
+        let legs = itinerary
+            .flight_plans
+            .into_iter()
+            .map(|object| FlightLeg::try_from(object))
+            .collect::<Result<Vec<FlightLeg>, FlightPlanError>>();
 
-        if let Some(plan) = &itinerary.flight_plan {
-            if let Some(leg) = parse_flight(plan) {
-                legs.push(leg);
-            }
-        }
-
-        for dh in &itinerary.deadhead_flight_plans {
-            if let Some(leg) = parse_flight(dh) {
-                legs.push(leg);
-            }
-        }
+        let Ok(legs) = legs else {
+            rest_error!("(query_flight) Itinerary contained invalid flight plan(s).");
+            continue;
+        };
 
         offerings.push(Itinerary {
-            id: itinerary.id.clone(),
+            id,
             legs,
             base_pricing: None,
+            // TODO(R4): Vary currency by region
             currency_type: Some("usd".to_string()),
         })
     }
@@ -225,7 +269,7 @@ pub async fn request_flight(
         for leg in &itinerary.legs {
             let pricing_query = PricingRequest {
                 service_type: ServiceType::Cargo as i32,
-                distance_km: leg.distance_m / 1000.0,
+                distance_km: leg.distance_meters / 1000.0,
                 weight_kg: payload.cargo_weight_kg,
             };
 
@@ -233,8 +277,7 @@ pub async fn request_flight(
         }
 
         // Make request, process response
-        let request = tonic::Request::new(pricing_requests);
-        let response = pricing_client.get_pricing(request).await;
+        let response = grpc_clients.pricing.get_pricing(pricing_requests).await;
 
         let Ok(response) = response else {
             let error_msg = "svc-pricing error.".to_string();
@@ -262,51 +305,104 @@ pub async fn request_flight(
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use chrono::{Duration, Utc};
+    use svc_scheduler_client_grpc::prelude::scheduler_storage::flight_plan;
+    use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoLineString;
+    use uuid::Uuid;
 
     #[test]
-    fn ut_parse_flight() {
-        let depart_time = datetime_to_timestamp(&Utc::now());
-        assert!(depart_time.is_some());
-
-        let fp = QueryFlightPlan {
-            id: "".to_string(),
-            pilot_id: "".to_string(),
-            vehicle_id: "".to_string(),
-            cargo: [123].to_vec(),
-            weather_conditions: "Sunny, no wind :)".to_string(),
-            vertiport_depart_id: "".to_string(),
-            pad_depart_id: "".to_string(),
-            vertiport_arrive_id: "".to_string(),
-            pad_arrive_id: "".to_string(),
-            estimated_departure: depart_time.clone(),
-            estimated_arrival: depart_time,
-            actual_departure: None,
-            actual_arrival: None,
-            flight_release_approval: None,
-            flight_plan_submitted: None,
-            flight_status: 0,
-            flight_priority: 0,
-            estimated_distance: 1000,
+    fn ut_flight_plan_object_to_return_type() {
+        let data = flight_plan::Data {
+            pilot_id: Uuid::new_v4().to_string(),
+            vehicle_id: Uuid::new_v4().to_string(),
+            departure_vertiport_id: Some(Uuid::new_v4().to_string()),
+            destination_vertiport_id: Some(Uuid::new_v4().to_string()),
+            departure_vertipad_id: Uuid::new_v4().to_string(),
+            destination_vertipad_id: Uuid::new_v4().to_string(),
+            path: Some(GeoLineString {
+                points: vec![
+                    GeoPoint {
+                        latitude: 52.37488619450752,
+                        longitude: 4.916048576268328,
+                    },
+                    GeoPoint {
+                        latitude: 52.37488619450752,
+                        longitude: 4.916048576268328,
+                    },
+                ],
+            }),
+            scheduled_departure: Some(Utc::now().into()),
+            scheduled_arrival: Some((Utc::now() + Duration::hours(1)).into()),
+            ..Default::default()
         };
 
-        let Some(flight_plan) = parse_flight(&fp) else {
-            panic!();
+        let flight_plan = flight_plan::Object {
+            id: Uuid::new_v4().to_string(),
+            data: Some(data.clone()),
         };
-        assert_eq!(fp.id, flight_plan.flight_plan_id);
-        assert_eq!(fp.vertiport_depart_id, flight_plan.vertiport_depart_id);
-        assert_eq!(fp.vertiport_arrive_id, flight_plan.vertiport_arrive_id);
+
+        let leg: FlightLeg = FlightLeg::try_from(flight_plan.clone()).unwrap();
+        assert_eq!(flight_plan.id, leg.flight_plan_id);
+
+        let result_data = data.clone();
+        assert_eq!(
+            result_data.departure_vertiport_id.unwrap(),
+            leg.vertiport_depart_id
+        );
+        assert_eq!(
+            result_data.destination_vertiport_id.unwrap(),
+            leg.vertiport_arrive_id
+        );
+        assert_eq!(result_data.path.unwrap().points, leg.path);
 
         // Bad time arguments
         {
-            let mut fp2 = fp.clone();
-            fp2.estimated_departure = None;
-            assert!(parse_flight(&fp2).is_none());
+            let mut data = data.clone();
+            data.scheduled_departure = None;
+            let fp = flight_plan::Object {
+                id: Uuid::new_v4().to_string(),
+                data: Some(data),
+            };
+            let e = FlightLeg::try_from(fp).unwrap_err();
+            assert_eq!(e, FlightPlanError::InvalidDepartureTime);
         }
 
         {
-            let mut fp2 = fp.clone();
-            fp2.estimated_arrival = None;
-            assert!(parse_flight(&fp2).is_none());
+            let mut data = data.clone();
+            data.scheduled_arrival = None;
+            let fp = flight_plan::Object {
+                id: Uuid::new_v4().to_string(),
+                data: Some(data),
+            };
+            let e = FlightLeg::try_from(fp).unwrap_err();
+            assert_eq!(e, FlightPlanError::InvalidArrivalTime);
+        }
+
+        {
+            let mut data = data.clone();
+            // Needs 2 or more points to be valid
+            data.path = Some(GeoLineString {
+                points: vec![GeoPoint {
+                    latitude: 52.37488619450752,
+                    longitude: 4.916048576268328,
+                }],
+            });
+            let fp = flight_plan::Object {
+                id: Uuid::new_v4().to_string(),
+                data: Some(data),
+            };
+            let e = FlightLeg::try_from(fp).unwrap_err();
+            assert_eq!(e, FlightPlanError::InvalidPath);
+        }
+
+        {
+            let fp = flight_plan::Object {
+                id: Uuid::new_v4().to_string(),
+                data: None,
+            };
+
+            let e = FlightLeg::try_from(fp).unwrap_err();
+            assert_eq!(e, FlightPlanError::InvalidData);
         }
     }
 }

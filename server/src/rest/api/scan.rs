@@ -2,10 +2,10 @@ use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use crate::rest_types::ParcelScan;
 use axum::{extract::Extension, Json};
+use chrono::Utc;
 use hyper::StatusCode;
+use svc_storage_client_grpc::prelude::*;
 use svc_storage_client_grpc::resources::parcel_scan::Data as ParcelScanData;
-use svc_storage_client_grpc::ClientConnect;
-use svc_storage_client_grpc::GeoPoint;
 
 /// Scan a parcel
 /// The provided parcel ID and scanner ID must already exist in the database
@@ -54,24 +54,18 @@ pub async fn scan_parcel(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Get Client
-    let Ok(mut client) = grpc_clients.storage.parcel_scan.get_client().await else {
-        let error_msg = "svc-storage unavailable.".to_string();
-        rest_error!("(scan_parcel) {}", &error_msg);
-        return Err(StatusCode::SERVICE_UNAVAILABLE);
-    };
-
     // Make request, process response
-    let request = tonic::Request::new(ParcelScanData {
+    let data = ParcelScanData {
         scanner_id: payload.scanner_id,
         parcel_id: payload.parcel_id,
         geo_location: Some(GeoPoint {
             latitude: payload.longitude,
             longitude: payload.latitude,
         }),
-    });
+        created_at: Some(Utc::now().into()),
+    };
 
-    let response = match client.insert(request).await {
+    let response = match grpc_clients.storage.parcel_scan.insert(data).await {
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();
