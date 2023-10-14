@@ -1,12 +1,8 @@
+![Arrow Banner](https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png)
+
 # `svc-cargo` - Software Design Document (SDD)
 
-<center>
-
-<img src="https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png" style="height:250px" />
-
-</center>
-
-## Overview
+## :telescope: Overview
 
 This document details the software implementation of `svc-cargo`.
 
@@ -21,7 +17,7 @@ Attribute | Description
 Status | Development
 Stuckee | A.M. Smith ([@ServiceDog](https://github.com/ServiceDog))
 
-## Related Documents
+## :books: Related Documents
 
 Document | Description
 --- | ---
@@ -31,25 +27,13 @@ Document | Description
 [Concept of Operations - `svc-cargo`](./conops.md) | Defines the motivation and duties of this microservice.
 [Interface Control Document (ICD) - `svc-cargo`](./icd.md) | Defines the inputs and outputs of this microservice.
 
-## Frameworks
-
-See the [High-Level Services ICD](https://github.com/Arrow-air/se-services/blob/develop/docs/icd.md).
-
-## Location
-
-Server-side service.
-
-## Module Attributes
+## :dna: Module Attributes
 
 Attribute | Applies | Explanation
 --- | --- | ---
 Safety Critical | No | This is a client-facing process that is not essential to the function of the underlying services network.
 
-## Global Variables
-
-None
-
-## Logic 
+## :gear: Logic 
 
 ### Initialization
 
@@ -76,15 +60,15 @@ This information allows `svc-cargo` to connect to other microservices to obtain 
 
 :exclamation: These environment variables will *not* default to anything if not found. In this case, requests involving the handler will result in a `503 SERVICE UNAVAILABLE`.
 
-For detailed sequence diagrams regarding request handlers, see [REST Handlers](#rest-handlers).
+For detailed sequence diagrams regarding request handlers, see [REST Handlers](#speech_balloon-rest-handlers).
 
 ### Cleanup
 
 None
 
-## REST Handlers
+## :speech_balloon: REST Handlers
 
-### `vertiports` Handler
+### `query_vertiports` Handler
 
 The client will request a list of vertiports for their region, so they can choose their departure and destination ports.
 
@@ -131,7 +115,7 @@ sequenceDiagram
     cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
-### `query` Handler
+### `query_flight` Handler
 
 The client will send a query to `svc-cargo` including vertiports and time of departure. `svc-cargo` will forward valid requests to `svc-scheduler`
 
@@ -145,18 +129,18 @@ sequenceDiagram
     participant cargo as svc-cargo
     participant scheduler as svc-scheduler
     participant pricing as svc-pricing
-    client-->>cargo: (REST) POST /cargo/query
+    client-->>cargo: (REST) POST /cargo/request
     cargo-->>cargo: Validate request
     cargo-->>cargo: Connect to svc-scheduler and svc-pricing
-    cargo-->>scheduler: (GRPC REQ) query_flight
-    scheduler-->>cargo: (GRPC REP) <list of flight plans>
+    cargo-->>scheduler: (GRPC REQ) query_itinerary
+    scheduler-->>cargo: (GRPC REP) <list of itineraries>
 
     loop per plan
         cargo-->>pricing: (GRPC REQ) get_pricing
         pricing-->>cargo: (GRPC REP) <pricing>
     end
 
-    cargo-->>client: (200 OK) <list of priced flight plans>
+    cargo-->>client: (200 OK) <list of priced itineraries>
 ```
 
 **(query) Off-Nominal**: Invalid request body
@@ -235,9 +219,9 @@ sequenceDiagram
 
 ### `confirm` Handler
 
-The client will choose a flight plan from their list of options and confirm it through its unique *draft* UUID.
+The client will choose an itinerary from their list of options and confirm it through its unique *draft* UUID.
 
-:exclamation: A nominal reply to the client will contain confirmation and a *new* flight plan UUID that the client must use for future requests (such as cancelling). The original `draft` UUID used to confirm the flight is discarded when a flight is confirmed.
+:exclamation: A nominal reply to the client will contain confirmation and a *new* itinerary UUID that the client must use for future requests (such as cancelling). The original `draft` UUID used to confirm the itinerary is discarded when an itinerary is confirmed.
 
 This handler makes a request to `svc-scheduler`.
 
@@ -251,14 +235,14 @@ sequenceDiagram
     client-->>cargo: (REST) PUT /cargo/confirm
     cargo-->>cargo: Validate request
     cargo-->>cargo: Connect to svc-scheduler
-    cargo-->>scheduler: (GRPC REQ) confirm_flight
-    scheduler-->>cargo: (GRPC REP) <confirmation, new flight plan ID>
-    cargo-->>client: (200 OK) <confirmation, new flight plan ID>
+    cargo-->>scheduler: (GRPC REQ) confirm_itinerary
+    scheduler-->>cargo: (GRPC REP) <confirmation, new itinerary ID>
+    cargo-->>client: (200 OK) <confirmation, new itinerary ID>
 ```
 
 **(confirm) Off-Nominal**: Invalid request body
 
-This can occur if an invalid flight plan ID format is provided by the client.
+This can occur if an invalid itinerary ID format is provided by the client.
 
 ```mermaid
 sequenceDiagram
@@ -299,14 +283,14 @@ sequenceDiagram
     client-->>cargo: (REST) PUT /cargo/confirm
     cargo-->>cargo: Validate request
     cargo-->>cargo: Connect to svc-scheduler
-    cargo-->>scheduler: (GRPC REQ) confirm_flight
+    cargo-->>scheduler: (GRPC REQ) confirm_itinerary
     scheduler-->>cargo: (GRPC REP) Error
     cargo-->>client: (500 INTERNAL_SERVER_ERROR)
 ```
 
 ### `cancel` Handler
 
-The client may cancel a flight plan through its unique UUID.
+The client may cancel an itinerary through its unique UUID.
 
 This handler makes a request to `svc-scheduler`.
 
@@ -320,9 +304,8 @@ sequenceDiagram
     client-->>cargo: (REST) DELETE /cargo/cancel
     cargo-->>cargo: Validate request
     cargo-->>cargo: Connect to svc-scheduler
-    cargo-->>scheduler: (GRPC REQ) confirm_flight
-    scheduler-->>cargo: (GRPC REP) <confirmation, new flight plan ID>
-    cargo-->>client: (200 OK) <list of priced flight plans>
+    cargo-->>scheduler: (GRPC REQ) cancel_itinerary
+    cargo-->>client: (200 OK) <confirmation of cancellation>
 ```
 
 **(cancel) Off-Nominal**: Invalid request body
@@ -367,7 +350,159 @@ sequenceDiagram
     client-->>cargo: (REST) DELETE /cargo/cancel
     cargo-->>cargo: Validate request
     cargo-->>cargo: Connect to svc-scheduler
-    cargo-->>scheduler: (GRPC REQ) confirm_flight
+    cargo-->>scheduler: (GRPC REQ) cancel_itinerary
     scheduler-->>cargo: (GRPC REP) Error
     cargo-->>client: (500 INTERNAL_SERVER_ERROR)
+```
+
+### `query_landings` Handler
+
+A vertiport may request a list of upcoming landings for a specific vertiport, in order to display them on a screen.
+
+**(query_landings) Nominal**: Request succeeds
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) GET /cargo/landings
+    cargo->>storage: search(...)<br>Up to N landings between in range<br>T1 -> T2 at vertiport X
+    storage->>cargo: <list of flight plans>
+    cargo->>cargo: <convert to list of vertipad, aircraft, timestamp>
+    alt for_each vertipad and aircraft
+        Note over cargo: Get vertipad details
+        cargo->>storage: search(vertipad_id)
+        storage->>cargo: Vertipad record
+        Note over cargo: Get aircraft details
+        cargo->>storage: search(vehicle_id)
+        storage->>cargo: Aircraft record
+    end
+    cargo->>client: list of landings
+```
+
+**(query_landings) Off-Nominal**: Request to svc-storage fails
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) GET /cargo/landings
+    cargo->>storage: search(...)<br>Up to N landings between in range<br>T1 -> T2 at vertiport X
+    storage->>cargo: Error
+    cargo->>client: 500 Internal Error
+```
+
+**(query_landings) Off-Nominal**: Couldn't parse flight plans
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) GET /cargo/landings
+    cargo->>storage: search(...)<br>Up to N landings between in range<br>T1 -> T2 at vertiport X
+    storage->>cargo: <list of flight plans>
+    cargo->>cargo: <convert to list of vertipad, aircraft, timestamp>
+    alt failed to parse flight plans
+        cargo->>client: 500 INTERNAL
+    end
+```
+
+**(query_landings) Off-Nominal**: Couldn't get vehicle or vertipad details
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) GET /cargo/landings
+    cargo->>storage: search(...)<br>Up to N landings between in range<br>T1 -> T2 at vertiport X
+    storage->>cargo: <list of flight plans>
+    cargo->>cargo: <convert to list of vertipad, aircraft, timestamp>
+    alt for_each vertipad and aircraft
+        Note over cargo: Get vertipad details
+        cargo->>storage: search(vertipad_id)
+        alt Failed
+            storage->>cargo: Error
+            cargo->>client: 500 INTERNAL
+        end
+        Note over cargo: Get aircraft details
+        cargo->>storage: search(vehicle_id)
+        alt Failed
+            storage->>cargo: Error
+            cargo->>client: 500 INTERNAL
+        end
+    end
+```
+
+### `scan` Handler
+
+This is for a client (handheld scanner, locker, or drone) to scan a parcel and upload its location to the backend.
+
+**(scan) Nominal**: Scanned successfully
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) PUT /cargo/scan<br>ParcelScan Payload
+    cargo->>storage: parcel_scan.insert(...)
+    storage->>cargo: Response with validation result
+    cargo->>client: success
+```
+
+**(scan) Off-Nominal**: Bad Request
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) PUT /cargo/scan<br>ParcelScan Payload
+    alt bad UUID
+        cargo->>client: 400 BAD REQUEST
+    end
+    alt nonsensical coordinates
+        cargo->>client: 400 BAD REQUEST
+    end
+```
+
+**(scan) Off-Nominal**: svc-storage insertion failed
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) PUT /cargo/scan<br>ParcelScan Payload
+    cargo->>storage: parcel_scan.insert(...)
+    storage->>cargo: Error
+    cargo->>client: 500 INTERNAL
+```
+
+
+**(scan) Off-Nominal**: validation result is `false``
+```mermaid
+sequenceDiagram
+    autonumber
+    participant client as Vertiport Screen
+    participant cargo as svc-cargo
+    participant storage as svc-storage
+
+    client->>cargo: (REST) PUT /cargo/scan<br>ParcelScan Payload
+    cargo->>storage: parcel_scan.insert(...)
+    storage->>cargo: Response with validation result
+    alt result is false
+        cargo->>client: 500 INTERNAL
+    end
 ```

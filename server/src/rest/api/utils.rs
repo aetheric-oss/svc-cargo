@@ -32,14 +32,14 @@ pub async fn get_vertipad_details(
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();
-            rest_error!("(get_landings) {} {:?}", &error_msg, e);
+            rest_error!("(get_vertipad_details) {} {:?}", &error_msg, e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
     let Some(data) = response.data else {
         let error_msg = "svc-storage error; no data.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
+        rest_error!("(get_vertipad_details) {}", &error_msg);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
@@ -58,14 +58,14 @@ pub async fn get_vehicle_details(
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error, could not get by id.".to_string();
-            rest_error!("(get_landings) {} {:?}", &error_msg, e);
+            rest_error!("(get_vehicle_details) {} {:?}", &error_msg, e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
     let Some(data) = response.data else {
         let error_msg = "svc-storage error; no data.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
+        rest_error!("(get_vehicle_details) {}", &error_msg);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 

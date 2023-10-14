@@ -12,7 +12,7 @@ use tower::{buffer::BufferLayer, limit::RateLimitLayer, ServiceBuilder};
 /// Starts the REST API server for this microservice
 #[cfg(not(tarpaulin_include))]
 pub async fn server(config: crate::config::Config) {
-    rest_info!("(rest) starting server.");
+    rest_info!("(server) starting server.");
 
     let rest_port = config.docker_port_rest;
     let rate_limit = config.request_limit_per_second as u64;
@@ -66,11 +66,11 @@ pub async fn server(config: crate::config::Config) {
 
     let address = format!("[::]:{rest_port}");
     let Ok(address) = address.parse() else {
-        rest_error!("(rest server) failed to parse address: {}", address);
+        rest_error!("(server) failed to parse address: {}", address);
         return;
     };
 
-    rest_info!("(rest server) hosted at {:?}", address);
+    rest_info!("(server) hosted at {:?}", address);
     let _ = axum::Server::bind(&address)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal("rest"))

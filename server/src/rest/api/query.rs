@@ -98,26 +98,26 @@ pub async fn query_landings(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<LandingsQuery>,
 ) -> Result<Json<LandingsResponse>, StatusCode> {
-    rest_debug!("(get_landings) entry.");
+    rest_debug!("(query_landings) entry.");
 
     if payload.limit > MAX_LANDINGS_TO_RETURN {
         let error_msg = format!(
             "requested number of landings exceeds maximum of {}.",
             MAX_LANDINGS_TO_RETURN
         );
-        rest_error!("(get_landings) {}", &error_msg);
+        rest_error!("(query_landings) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
     }
 
     if !is_uuid(&payload.vertiport_id) {
         let error_msg = "vertiport ID not in UUID format.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
+        rest_error!("(query_landings) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
     }
 
     let Some(arrival_window) = payload.arrival_window else {
         let error_msg = "arrival window not specified.".to_string();
-        rest_error!("(get_landings) {}", &error_msg);
+        rest_error!("(query_landings) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
     };
 
@@ -143,7 +143,7 @@ pub async fn query_landings(
         Ok(response) => response.into_inner(),
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();
-            rest_error!("(get_landings) {} {:?}", &error_msg, e);
+            rest_error!("(query_landings) {} {:?}", &error_msg, e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
@@ -152,13 +152,13 @@ pub async fn query_landings(
     for fp in response.list {
         let Some(data) = fp.data else {
             let error_msg = "flight plan data is None.".to_string();
-            rest_error!("(get_landings) {}", &error_msg);
+            rest_error!("(query_landings) {}", &error_msg);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
 
         let Some(scheduled_arrival) = data.scheduled_arrival else {
             let error_msg = "flight plan has no scheduled arrival.".to_string();
-            rest_error!("(get_landings) {}", &error_msg);
+            rest_error!("(query_landings) {}", &error_msg);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
 

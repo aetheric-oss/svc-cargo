@@ -1,12 +1,8 @@
+![Arrow Banner](https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png)
+
 # Interface Control Document (ICD) - `svc-cargo`
 
-<center>
-
-<img src="https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png" style="height:250px" />
-
-</center>
-
-## Overview
+## :telescope: Overview
 
 This document defines the GRPC and REST interfaces unique to the `svc-cargo` microservice.
 
@@ -14,7 +10,7 @@ Attribute | Description
 --- | ---
 Status | Development
 
-## Related Documents
+## :books: Related Documents
 
 Document | Description
 --- | ---
@@ -23,11 +19,11 @@ Document | Description
 [Requirements - `svc-cargo`](https://nocodb.arrowair.com/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements for this service.
 [Software Design Document (SDD)](./sdd.md) | Implementation description of this service.
 
-## Frameworks
+## :hammer: Frameworks
 
 See the High-Level Services ICD.
 
-## REST
+## :speech_balloon: REST
 
 ### Files
 
@@ -45,7 +41,7 @@ See the High-Level Services ICD.
 
 See our [public documentation](https://www.arrowair.com/docs/documentation/services/api/rest/develop#tag/svc-cargo) for a full API.
 
-## GRPC
+## :speech_balloon: gRPC
 
 ### Files
 
@@ -55,16 +51,10 @@ These interfaces are defined in a protocol buffer file, [`grpc.proto`](../proto/
 
 See Services ICD.
 
-### GRPC Server Methods ("Services")
+### gRPC Server Methods ("Services")
 
-GRPC server methods are called "services", an unfortunate name clash with the broader concept of web services.
+gRPC server methods are called "services", an unfortunate name clash with the broader concept of web services.
 
 | Service | Description |
 | ---- | ---- |
 | `IsReady` | Returns a message indicating if this service is ready for requests.<br>Similar to a health check, if a server is not "ready" it could be considered dead by the client making the request.
-
-### GRPC Client Messages ("Requests")
-
-| Request | Description |
-| ------    | ------- |
-| `FlightRequest` | A message to the svc-scheduler in particular

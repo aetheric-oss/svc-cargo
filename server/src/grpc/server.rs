@@ -36,7 +36,7 @@ pub async fn server(config: crate::config::Config) {
     let grpc_port = config.docker_port_grpc;
     let addr = format!("[::]:{grpc_port}");
     let Ok(addr) = addr.parse() else {
-        grpc_error!("(grpc server) failed to parse address: {}", addr);
+        grpc_error!("(server) failed to parse address: {}", addr);
         return;
     };
 
@@ -46,7 +46,7 @@ pub async fn server(config: crate::config::Config) {
         .set_serving::<RpcServiceServer<ServiceImpl>>()
         .await;
 
-    grpc_info!("(grpc server) hosted at {}", addr);
+    grpc_info!("(server) hosted at {}", addr);
     let _ = tonic::transport::Server::builder()
         .add_service(health_service)
         .add_service(RpcServiceServer::new(imp))

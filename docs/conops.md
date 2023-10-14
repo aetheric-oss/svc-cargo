@@ -1,10 +1,12 @@
+![Arrow Banner](https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png)
+
 # Concept of Operations - `svc-cargo`
 
-<center>
+## :telescope: Overview
 
-<img src="https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png" style="height:250px" />
+This microservice allows external processes to make requests to the network through a RESTful API.
 
-</center>
+### Metadata
 
 Item | Value
 --- | ---
