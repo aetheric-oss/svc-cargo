@@ -45,9 +45,8 @@ tower-http    = { version = "0.4", features = ["cors"] }
 uuid          = { version = "1.2", features = ["v4"] }
 
 [dependencies.svc-scheduler-client-grpc]
-branch = "am-smith/dw-1103/use-svc-gis-for-routin"
-git    = "https://github.com/Arrow-air/svc-scheduler.git"
-# tag = "v0.2.5-develop.16"
+git = "https://github.com/Arrow-air/svc-scheduler.git"
+tag = "v0.4.0"
 
 [dependencies.svc-pricing-client-grpc]
 git = "https://github.com/Arrow-air/svc-pricing"
