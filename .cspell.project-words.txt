@@ -39,3 +39,8 @@ nanos
 subsec
 datetime
 dotenv
+autogen
+Notdroppedoff
+callsign
+vertipad
+anstyle

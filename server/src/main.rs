@@ -20,10 +20,12 @@
 mod config;
 mod grpc;
 mod rest;
+mod rest_types {
+    include!("../../openapi/types.rs");
+}
 
 use clap::Parser;
-use dotenv::dotenv;
-use log::{error, info};
+use log::info;
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -35,15 +37,13 @@ struct Cli {
 #[tokio::main]
 #[cfg(not(tarpaulin_include))]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    info!("(svc-cargo) server startup.");
-    dotenv().ok();
+    println!("(main) server startup.");
 
     // Expect environment variables
-    let config = match config::Config::from_env() {
-        Ok(c) => c,
+    let config = match config::Config::try_from_env() {
+        Ok(config) => config,
         Err(e) => {
-            error!("(config) could not parse config. {}", e);
-            panic!();
+            panic!("(main) could not parse config. {}", e);
         }
     };
 
@@ -56,8 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start Logger
     let log_cfg: &str = config.log_config.as_str();
     if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
-        error!("(logger) could not parse {}. {}", log_cfg, e);
-        panic!();
+        panic!("(main) could not parse {}. {}", log_cfg, e);
     }
 
     // Start GRPC Server
@@ -66,6 +65,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start REST API
     rest::server::server(config).await;
 
-    info!("(svc-cargo) successful shutdown.");
+    info!("(main) successful shutdown.");
     Ok(())
 }

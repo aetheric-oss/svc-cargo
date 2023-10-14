@@ -28,11 +28,13 @@ pub struct Config {
     pub scheduler_host_grpc: String,
     /// path to log configuration YAML file
     pub log_config: String,
+    /// Rate limit - requests per second
+    pub request_limit_per_second: u8,
 }
 
 impl Config {
     /// Create a new `Config` object using environment variables
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn try_from_env() -> Result<Self, ConfigError> {
         // read .env file if present
         dotenv().ok();
 
