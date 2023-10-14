@@ -1,3 +1,21 @@
+## [Release 0.10.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.10.0)
+
+### ✨ Features
+
+- add parcel scan API ([`b66df66`](https://github.com/Arrow-air/svc-cargo/commit/b66df66dcc65f77bc52d3d51359f5d50dea468d3))
+- connect scan api to storage ([`8a9e48b`](https://github.com/Arrow-air/svc-cargo/commit/8a9e48bcc52ae71b9c96bede19fc0e73e13b7bf0))
+- add get flight plans API ([`c19c4f3`](https://github.com/Arrow-air/svc-cargo/commit/c19c4f33a485056bcec043c02644f8fb41fa223b))
+- add rate and request buffer limiting ([`995257a`](https://github.com/Arrow-air/svc-cargo/commit/995257a078ffc2b62dc28822e228d76d966b3e8d))
+
+### 🛠 Maintenance
+
+- terraform provisioned file changes ([`734b4c6`](https://github.com/Arrow-air/svc-cargo/commit/734b4c6fadad167ca45a39d5cc7a51f1fd52be18))
+- address reviewer comments ([`4da2da2`](https://github.com/Arrow-air/svc-cargo/commit/4da2da26622e614f9ebc3300e0111f02e4d1e277))
+- refactor ([`cc71dce`](https://github.com/Arrow-air/svc-cargo/commit/cc71dce2713d6005f43b9b1e1c2f2d7025b89c13))
+- r3 final cleanup ([`7e00963`](https://github.com/Arrow-air/svc-cargo/commit/7e009638a9565c42c2c3c01a584123ee7e9c1a76))
+- update dependencies ([`86c395a`](https://github.com/Arrow-air/svc-cargo/commit/86c395a56feecc908866eac5871acbb188425ce0))
+- r3 final cleanup ([`32c7de3`](https://github.com/Arrow-air/svc-cargo/commit/32c7de3ee6380b8a781c200f52355a13a0e57d03))
+
 ## [Release 0.9.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.9.0)
 
 ### ✨ Features
