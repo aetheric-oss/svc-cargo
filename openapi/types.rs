@@ -189,7 +189,7 @@ pub struct ParcelScan {
     pub longitude: f64,
 }
 
-/// Request Body Information for Landings at a given vertiport
+/// Request Body Information for Landings at a Given Vertiport
 #[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
 pub struct LandingsQuery {
     /// The String ID of the vertiport
