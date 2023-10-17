@@ -1,6 +1,7 @@
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use crate::rest_types::{Landing, LandingsQuery, LandingsResponse, MAX_LANDINGS_TO_RETURN};
+use crate::rest_types::{ParcelScan, TrackingQuery, TrackingResponse};
 use crate::rest_types::{Vertiport, VertiportsQuery};
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
@@ -44,7 +45,7 @@ pub async fn query_vertiports(
     let Ok(response) = grpc_clients.storage.vertiport.search(filter).await else {
         let error_msg = "error response from svc-storage.".to_string();
         rest_error!("(query_vertiports) {}.", &error_msg);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR)
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
     let mut vertiports: Vec<Vertiport> = vec![];
@@ -180,4 +181,76 @@ pub async fn query_landings(
     }
 
     Ok(Json(LandingsResponse { landings }))
+}
+
+/// Request a list of landings for a vertiport.
+/// No more than [`MAX_LANDINGS_TO_RETURN`] landings will be returned.
+#[utoipa::path(
+    get,
+    path = "/cargo/track",
+    tag = "svc-cargo",
+    responses(
+        (status = 200, description = "Parcel scans retrieved successfully"),
+        (status = 400, description = "Request body is invalid format"),
+        (status = 500, description = "Dependencies returned error"),
+        (status = 503, description = "Could not connect to other microservice dependencies")
+    ),
+    request_body = TrackingQuery
+)]
+pub async fn query_scans(
+    Extension(grpc_clients): Extension<GrpcClients>,
+    Json(payload): Json<TrackingQuery>,
+) -> Result<Json<TrackingResponse>, StatusCode> {
+    rest_debug!("(query_scans) entry.");
+    if !is_uuid(&payload.parcel_id) {
+        rest_error!("(query_scans) parcel ID not in UUID format.");
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    //
+    // Request flight plans
+    //
+    let mut filter =
+        AdvancedSearchFilter::search_equals("parcel_id".to_string(), payload.parcel_id.clone());
+
+    filter.order_by = vec![SortOption {
+        sort_field: "created_at".to_string(),
+        sort_order: SortOrder::Asc as i32,
+    }];
+
+    let response = match grpc_clients.storage.parcel_scan.search(filter).await {
+        Ok(response) => response.into_inner().list,
+        Err(e) => {
+            let error_msg = "svc-storage error.".to_string();
+            rest_error!("(query_scans) {} {:?}", &error_msg, e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    let scans: Vec<ParcelScan> = response
+        .into_iter()
+        .filter_map(|scan| {
+            let Some(data) = scan.data else {
+                rest_error!("(query_scans) No data in parcel scan data for {}.", scan.id);
+                return None;
+            };
+
+            let Some(geo_location) = data.geo_location else {
+                rest_error!(
+                    "(query_scans) No geo_location in parcel scan data for {}.",
+                    scan.id
+                );
+                return None;
+            };
+
+            Some(ParcelScan {
+                parcel_id: scan.id,
+                scanner_id: data.scanner_id,
+                latitude: geo_location.latitude,
+                longitude: geo_location.longitude,
+            })
+        })
+        .collect::<Vec<ParcelScan>>();
+
+    Ok(Json(TrackingResponse { scans }))
 }

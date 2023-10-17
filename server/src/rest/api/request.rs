@@ -220,7 +220,11 @@ pub async fn request_flight(
     let response = grpc_clients.scheduler.query_flight(flight_query).await;
     let Ok(response) = response else {
         let error_msg = "svc-scheduler error.".to_string();
-        rest_error!("(request_flight) {} {:?}", &error_msg, response.unwrap_err());
+        rest_error!(
+            "(request_flight) {} {:?}",
+            &error_msg,
+            response.unwrap_err()
+        );
         rest_error!("(request_flight) invalidating svc-scheduler client.");
         grpc_clients.scheduler.invalidate().await;
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -263,7 +267,7 @@ pub async fn request_flight(
 
     // StatusUpdate message to customer?
     // e.g. Got your flights! Calculating prices...
-    for mut itinerary in &mut offerings {
+    for itinerary in &mut offerings {
         let mut pricing_requests = PricingRequests { requests: vec![] };
 
         for leg in &itinerary.legs {
@@ -281,7 +285,11 @@ pub async fn request_flight(
 
         let Ok(response) = response else {
             let error_msg = "svc-pricing error.".to_string();
-            rest_error!("(request_flight) {} {:?}", &error_msg, response.unwrap_err());
+            rest_error!(
+                "(request_flight) {} {:?}",
+                &error_msg,
+                response.unwrap_err()
+            );
             rest_error!("(request_flight) invalidating svc-pricing client.");
             grpc_clients.pricing.invalidate().await;
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -289,7 +297,7 @@ pub async fn request_flight(
 
         let response = response.into_inner();
 
-        for (price, mut leg) in response.prices.iter().zip(itinerary.legs.iter_mut()) {
+        for (price, leg) in response.prices.iter().zip(itinerary.legs.iter_mut()) {
             leg.base_pricing = Some(*price);
             leg.currency_type = Some("usd".to_string());
         }
