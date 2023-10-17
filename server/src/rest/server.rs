@@ -39,6 +39,7 @@ pub async fn server(config: crate::config::Config) {
             routing::post(api::query::query_vertiports),
         )
         .route("/cargo/scan", routing::put(api::scan::scan_parcel))
+        .route("/cargo/track", routing::get(api::query::query_scans))
         .route("/cargo/landings", routing::get(api::query::query_landings))
         .layer(
             CorsLayer::new()

@@ -189,7 +189,7 @@ pub struct ParcelScan {
     pub longitude: f64,
 }
 
-/// Request Body Information for Deliveries Query
+/// Request Body Information for Landings at a given vertiport
 #[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
 pub struct LandingsQuery {
     /// The String ID of the vertiport
@@ -232,4 +232,18 @@ pub struct Landing {
     // TODO(R4) Parcels to deliver and acquire
     // pub parcels_deliver: Vec<String>,
     // pub parcels_acquire: Vec<String>,
+}
+
+/// Request Body Information for Tracking a Parcel Query
+#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
+pub struct TrackingQuery {
+    /// The String ID of the vertiport
+    pub parcel_id: String,
+}
+
+/// Tracking Information Response
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct TrackingResponse {
+    /// list of scans
+    pub scans: Vec<ParcelScan>,
 }
