@@ -16,6 +16,7 @@ use utoipa::OpenApi;
         api::cancel::cancel_itinerary,
         api::scan::scan_parcel,
         api::query::query_landings,
+        api::query::query_scans,
         api::health::health_check
     ),
     components(
@@ -34,6 +35,8 @@ use utoipa::OpenApi;
             rest_types::Landing,
             rest_types::LandingsQuery,
             rest_types::LandingsResponse,
+            rest_types::TrackingQuery,
+            rest_types::TrackingResponse,
             GeoPoint
         )
     ),
