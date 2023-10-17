@@ -111,8 +111,10 @@ pub async fn query_landings(
     }
 
     if !is_uuid(&payload.vertiport_id) {
-        let error_msg = "vertiport ID not in UUID format.".to_string();
-        rest_error!("(query_landings) {}", &error_msg);
+        rest_error!(
+            "(query_landings) vertiport ID not in UUID format: {}",
+            payload.vertiport_id
+        );
         return Err(StatusCode::BAD_REQUEST);
     }
 
@@ -203,7 +205,10 @@ pub async fn query_scans(
 ) -> Result<Json<TrackingResponse>, StatusCode> {
     rest_debug!("(query_scans) entry.");
     if !is_uuid(&payload.parcel_id) {
-        rest_error!("(query_scans) parcel ID not in UUID format.");
+        rest_error!(
+            "(query_scans) parcel ID not in UUID format: {}",
+            payload.parcel_id
+        );
         return Err(StatusCode::BAD_REQUEST);
     }
 
