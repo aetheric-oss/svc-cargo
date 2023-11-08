@@ -1,8 +1,8 @@
+use super::rest_types::{Landing, LandingsQuery, LandingsResponse, MAX_LANDINGS_TO_RETURN};
+use super::rest_types::{ParcelScan, TrackingQuery, TrackingResponse};
+use super::rest_types::{Vertiport, VertiportsQuery};
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::{Landing, LandingsQuery, LandingsResponse, MAX_LANDINGS_TO_RETURN};
-use crate::rest_types::{ParcelScan, TrackingQuery, TrackingResponse};
-use crate::rest_types::{Vertiport, VertiportsQuery};
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
 use svc_storage_client_grpc::prelude::*;
@@ -159,14 +159,14 @@ pub async fn query_landings(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
 
-        let Some(scheduled_arrival) = data.scheduled_arrival else {
+        let Some(scheduled_arrival) = data.target_timeslot_start else {
             let error_msg = "flight plan has no scheduled arrival.".to_string();
             rest_error!("(query_landings) {}", &error_msg);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
 
         let vertipad_name =
-            super::utils::get_vertipad_details(&data.destination_vertipad_id, &grpc_clients)
+            super::utils::get_vertipad_details(&data.target_vertipad_id, &grpc_clients)
                 .await?
                 .name;
 

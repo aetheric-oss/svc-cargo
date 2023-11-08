@@ -1,6 +1,6 @@
+use super::rest_types::ParcelScan;
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::ParcelScan;
 use axum::{extract::Extension, Json};
 use chrono::Utc;
 use hyper::StatusCode;

@@ -1,6 +1,6 @@
+use super::rest_types::{FlightLeg, FlightRequest, Itinerary};
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::{FlightLeg, FlightRequest, Itinerary};
 use axum::{extract::Extension, Json};
 use chrono::{Duration, Utc};
 use geo::HaversineDistance;
@@ -10,15 +10,11 @@ use lib_common::grpc::Client;
 //
 // Other Service Dependencies
 //
-use svc_pricing_client_grpc::client::{
-    pricing_request::ServiceType, PricingRequest, PricingRequests,
-};
-use svc_pricing_client_grpc::service::Client as ServiceClient;
-use svc_scheduler_client_grpc::client::{Itinerary as SchedulerItinerary, QueryFlightRequest};
+use svc_pricing_client_grpc::prelude::*;
 use svc_scheduler_client_grpc::prelude::scheduler_storage::{
     flight_plan::Object as FlightPlanObject, GeoPoint,
 };
-use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
+use svc_scheduler_client_grpc::prelude::*;
 
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
@@ -74,25 +70,25 @@ impl TryFrom<FlightPlanObject> for FlightLeg {
             return Err(FlightPlanError::Data);
         };
 
-        let Some(timestamp_depart) = data.scheduled_departure.clone() else {
+        let Some(timestamp_depart) = data.origin_timeslot_start.clone() else {
             let error_msg = "no departure time in flight plan; discarding.";
             rest_error!("{msg_prefix} {}", &error_msg);
             return Err(FlightPlanError::DepartureTime);
         };
 
-        let Some(timestamp_arrive) = data.scheduled_arrival.clone() else {
+        let Some(timestamp_arrive) = data.target_timeslot_start.clone() else {
             let error_msg = "{msg_prefix} no arrival time in flight plan; discarding.";
             rest_error!("{msg_prefix} {}", &error_msg);
             return Err(FlightPlanError::ArrivalTime);
         };
 
-        let Some(vertiport_depart_id) = data.departure_vertiport_id.clone() else {
+        let Some(vertiport_depart_id) = data.origin_vertiport_id.clone() else {
             let error_msg = "{msg_prefix} no departure vertiport in flight plan; discarding.";
             rest_error!("{msg_prefix} {}", &error_msg);
             return Err(FlightPlanError::DepartureTime);
         };
 
-        let Some(vertiport_arrive_id) = data.destination_vertiport_id.clone() else {
+        let Some(vertiport_arrive_id) = data.target_vertiport_id.clone() else {
             let error_msg = "{msg_prefix} no arrival vertiport in flight plan; discarding.";
             rest_error!("{msg_prefix} {}", &error_msg);
             return Err(FlightPlanError::ArrivalTime);
@@ -169,7 +165,7 @@ pub async fn request_flight(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let mut flight_query = QueryFlightRequest {
+    let mut flight_query = scheduler::QueryFlightRequest {
         is_cargo: true,
         persons: None,
         weight_grams: Some(weight_g),
@@ -230,7 +226,7 @@ pub async fn request_flight(
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
 
-    let itineraries: Vec<SchedulerItinerary> = response.into_inner().itineraries;
+    let itineraries: Vec<scheduler::Itinerary> = response.into_inner().itineraries;
 
     //
     // Unpack flight itineraries
@@ -268,11 +264,11 @@ pub async fn request_flight(
     // StatusUpdate message to customer?
     // e.g. Got your flights! Calculating prices...
     for itinerary in &mut offerings {
-        let mut pricing_requests = PricingRequests { requests: vec![] };
+        let mut pricing_requests = pricing::PricingRequests { requests: vec![] };
 
         for leg in &itinerary.legs {
-            let pricing_query = PricingRequest {
-                service_type: ServiceType::Cargo as i32,
+            let pricing_query = pricing::PricingRequest {
+                service_type: pricing::pricing_request::ServiceType::Cargo as i32,
                 distance_km: leg.distance_meters / 1000.0,
                 weight_kg: payload.cargo_weight_kg,
             };
@@ -323,29 +319,24 @@ mod tests {
 
     #[test]
     fn ut_flight_plan_object_to_return_type() {
-        let data = flight_plan::Data {
-            pilot_id: Uuid::new_v4().to_string(),
-            vehicle_id: Uuid::new_v4().to_string(),
-            departure_vertiport_id: Some(Uuid::new_v4().to_string()),
-            destination_vertiport_id: Some(Uuid::new_v4().to_string()),
-            departure_vertipad_id: Uuid::new_v4().to_string(),
-            destination_vertipad_id: Uuid::new_v4().to_string(),
-            path: Some(GeoLineString {
-                points: vec![
-                    GeoPoint {
-                        latitude: 52.37488619450752,
-                        longitude: 4.916048576268328,
-                    },
-                    GeoPoint {
-                        latitude: 52.37488619450752,
-                        longitude: 4.916048576268328,
-                    },
-                ],
-            }),
-            scheduled_departure: Some(Utc::now().into()),
-            scheduled_arrival: Some((Utc::now() + Duration::hours(1)).into()),
-            ..Default::default()
-        };
+        let mut data = flight_plan::mock::get_data_obj();
+        data.path = Some(GeoLineString {
+            points: vec![
+                GeoPoint {
+                    latitude: 52.37488619450752,
+                    longitude: 4.916048576268328,
+                },
+                GeoPoint {
+                    latitude: 52.37488619450752,
+                    longitude: 4.916048576268328,
+                },
+            ],
+        });
+        data.origin_timeslot_start = Some(Utc::now().into());
+        data.origin_timeslot_end = Some((Utc::now() + Duration::minutes(10)).into());
+        data.target_timeslot_start = Some((Utc::now() + Duration::hours(1)).into());
+        data.target_timeslot_start =
+            Some((Utc::now() + Duration::hours(1) + Duration::minutes(10)).into());
 
         let flight_plan = flight_plan::Object {
             id: Uuid::new_v4().to_string(),
@@ -357,11 +348,11 @@ mod tests {
 
         let result_data = data.clone();
         assert_eq!(
-            result_data.departure_vertiport_id.unwrap(),
+            result_data.origin_vertiport_id.unwrap(),
             leg.vertiport_depart_id
         );
         assert_eq!(
-            result_data.destination_vertiport_id.unwrap(),
+            result_data.target_vertiport_id.unwrap(),
             leg.vertiport_arrive_id
         );
         assert_eq!(result_data.path.unwrap().points, leg.path);
@@ -369,7 +360,7 @@ mod tests {
         // Bad time arguments
         {
             let mut data = data.clone();
-            data.scheduled_departure = None;
+            data.origin_timeslot_start = None;
             let fp = flight_plan::Object {
                 id: Uuid::new_v4().to_string(),
                 data: Some(data),
@@ -380,7 +371,7 @@ mod tests {
 
         {
             let mut data = data.clone();
-            data.scheduled_arrival = None;
+            data.target_timeslot_start = None;
             let fp = flight_plan::Object {
                 id: Uuid::new_v4().to_string(),
                 data: Some(data),

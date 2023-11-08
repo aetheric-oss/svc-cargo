@@ -1,23 +1,25 @@
 #[macro_use]
 pub mod macros;
-pub mod api;
 pub mod server;
 
-use crate::rest_types;
-use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
+mod api;
+use api::*;
+
 use utoipa::OpenApi;
+
+use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        api::request::request_flight,
-        api::query::query_vertiports,
-        api::confirm::confirm_itinerary,
-        api::cancel::cancel_itinerary,
-        api::scan::scan_parcel,
-        api::query::query_landings,
-        api::query::query_scans,
-        api::health::health_check
+        request::request_flight,
+        query::query_vertiports,
+        confirm::confirm_itinerary,
+        cancel::cancel_itinerary,
+        scan::scan_parcel,
+        query::query_landings,
+        query::query_scans,
+        health::health_check
     ),
     components(
         schemas(

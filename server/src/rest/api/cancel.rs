@@ -1,6 +1,6 @@
+use super::rest_types::ItineraryCancel;
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::ItineraryCancel;
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;

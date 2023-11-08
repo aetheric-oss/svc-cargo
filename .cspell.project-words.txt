@@ -43,4 +43,6 @@ autogen
 Notdroppedoff
 callsign
 vertipad
-anstyle
+logtest
+oneshot
+timeslot
