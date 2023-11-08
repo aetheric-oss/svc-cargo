@@ -1,70 +1,37 @@
-//! <center>
-//! <img src="https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png" style="height:250px" />
-//! </center>
-//! <div align="center">
-//!     <a href="https://github.com/Arrow-air/svc-cargo/releases">
-//!         <img src="https://img.shields.io/github/v/release/Arrow-air/svc-cargo?include_prereleases" alt="GitHub release (latest by date including pre-releases)">
-//!     </a>
-//!     <a href="https://github.com/Arrow-air/svc-cargo/tree/main">
-//!         <img src="https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=main" alt="Rust Checks">
-//!     </a>
-//!     <a href="https://discord.com/invite/arrow">
-//!         <img src="https://img.shields.io/discord/853833144037277726?style=plastic" alt="Arrow DAO Discord">
-//!     </a>
-//!     <br><br>
-//! </div>
-//!
-//! svc-cargo
-//! Processes flight requests from client applications
+//! Main function starting the server and initializing dependencies.
 
-mod config;
-mod grpc;
-mod rest;
-mod rest_types {
-    include!("../../openapi/types.rs");
-}
-
-use clap::Parser;
 use log::info;
-
-#[derive(Parser, Debug)]
-struct Cli {
-    /// Target file to write the OpenAPI Spec
-    #[arg(long)]
-    openapi: Option<String>,
-}
+use svc_cargo::*;
 
 #[tokio::main]
 #[cfg(not(tarpaulin_include))]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("(main) server startup.");
+    // Will use default config settings if no environment vars are found.
+    let config = Config::try_from_env().unwrap_or_default();
 
-    // Expect environment variables
-    let config = match config::Config::try_from_env() {
-        Ok(config) => config,
-        Err(e) => {
-            panic!("(main) could not parse config. {}", e);
-        }
-    };
+    // Try to load log configuration from the provided log file.
+    // Will default to stdout debug logging if the file can not be loaded.
+    load_logger_config_from_file(config.log_config.as_str()).await?;
+
+    info!("(main) Server startup.");
 
     // Allow option to only generate the spec file to a given location
+    // use `make rust-openapi` to generate the OpenAPI specification
     let args = Cli::parse();
     if let Some(target) = args.openapi {
         return rest::generate_openapi_spec(&target);
     }
 
-    // Start Logger
-    let log_cfg: &str = config.log_config.as_str();
-    if let Err(e) = log4rs::init_file(log_cfg, Default::default()) {
-        panic!("(main) could not parse {}. {}", log_cfg, e);
-    }
+    // REST Server
+    tokio::spawn(rest::server::rest_server(config.clone(), None));
 
-    // Start GRPC Server
-    tokio::spawn(grpc::server::server(config.clone()));
+    // GRPC Server
+    tokio::spawn(grpc::server::grpc_server(config, None)).await?;
 
-    // Start REST API
-    rest::server::server(config).await;
+    info!("(main) Server shutdown.");
 
-    info!("(main) successful shutdown.");
+    // Make sure all log message are written/ displayed before shutdown
+    log::logger().flush();
+
     Ok(())
 }
