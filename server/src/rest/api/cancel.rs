@@ -1,8 +1,9 @@
-use super::rest_types::ItineraryCancel;
+use super::rest_types::ItineraryCancelRequest;
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
+use svc_scheduler_client_grpc::prelude::FlightPriority;
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 use svc_storage_client_grpc::prelude::*;
 
@@ -17,11 +18,11 @@ use svc_storage_client_grpc::prelude::*;
         (status = 500, description = "svc-scheduler returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     ),
-    request_body = ItineraryCancel
+    request_body = ItineraryCancelRequest
 )]
 pub async fn cancel_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<ItineraryCancel>,
+    Json(payload): Json<ItineraryCancelRequest>,
 ) -> Result<(), StatusCode> {
     rest_debug!("(cancel_itinerary) entry.");
     let itinerary_id = payload.id;
@@ -34,8 +35,9 @@ pub async fn cancel_itinerary(
     // Make request, process response
     let response = match grpc_clients
         .scheduler
-        .cancel_itinerary(svc_scheduler_client_grpc::client::Id {
-            id: itinerary_id.clone(),
+        .cancel_itinerary(svc_scheduler_client_grpc::client::CancelItineraryRequest {
+            priority: FlightPriority::Medium as i32,
+            itinerary_id: itinerary_id.clone(),
         })
         .await
     {

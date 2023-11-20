@@ -2,14 +2,15 @@ use chrono::{DateTime, Utc};
 /// Types used for REST communication with the svc-cargo server
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
+pub use svc_scheduler_client_grpc::prelude::scheduler_storage::{GeoPoint, flight_plan::Data as FlightPlan};
+pub use svc_scheduler_client_grpc::client::TaskResponse;
 
-/// Don't allow overly large numbers of landings to be returned
+/// Don't allow overly large numbers of occupations to be returned
 pub const MAX_LANDINGS_TO_RETURN: u32 = 50;
 
 /// Request Body Information for Flight Query
 #[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
-pub struct FlightRequest {
+pub struct QueryItineraryRequest {
     /// The String ID of the vertiport to leave from
     pub vertiport_depart_id: String,
 
@@ -38,14 +39,14 @@ pub struct TimeWindow {
 
 /// Request body information to cancel an itinerary
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
-pub struct ItineraryCancel {
+pub struct ItineraryCancelRequest {
     /// Itinerary UUID to Cancel
     pub id: String,
 }
 
 /// Request Body Information for Region Query
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, ToSchema)]
-pub struct VertiportsQuery {
+pub struct QueryVertiportsRequest {
     /// Latitude of Client
     pub latitude: f32,
 
@@ -53,75 +54,70 @@ pub struct VertiportsQuery {
     pub longitude: f32,
 }
 
+/// Supported Currencies
+#[derive(Debug, Serialize, Deserialize, Copy, Clone, ToSchema)]
+pub enum CurrencyUnit {
+    /// One U.S. Dollar
+    USD,
+
+    /// One E.U. Euro
+    EURO,
+}
+
 /// Itinerary
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Itinerary {
-    /// The UUID of the itinerary
+    /// The svc-cargo UUID of the itinerary
+    /// Use to confirm a possible itinerary
     pub id: String,
 
     /// Each leg of the itinerary
-    pub legs: Vec<FlightLeg>,
+    pub flight_plans: Vec<FlightPlan>,
 
     /// The currency type, e.g. USD, EUR
-    pub currency_type: Option<String>,
+    pub currency_units: CurrencyUnit,
 
     /// The cost of the trip for the customer
-    pub base_pricing: Option<f32>,
+    /// List of "item": "cost"
+    pub base_pricing: Vec<(String, f32)>,
 }
 
-/// Leg of a flight
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct FlightLeg {
-    /// Flight Plan ID
-    pub flight_plan_id: String,
+// /// Leg of a flight
+// #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+// pub struct FlightPlan {
+//     /// Flight Plan ID
+//     pub flight_plan_id: String,
 
-    /// Departure Vertiport ID
-    pub vertiport_depart_id: String,
+//     /// Departure Vertiport ID
+//     pub vertiport_depart_id: String,
 
-    /// Arrival Vertiport ID
-    pub vertiport_arrive_id: String,
+//     /// Arrival Vertiport ID
+//     pub vertiport_arrive_id: String,
 
-    /// Estimated departure timestamp
-    pub timestamp_depart: DateTime<Utc>,
+//     /// Estimated departure timestamp
+//     pub timestamp_depart: DateTime<Utc>,
 
-    /// Estimated arrival timestamp
-    pub timestamp_arrive: DateTime<Utc>,
+//     /// Estimated arrival timestamp
+//     pub timestamp_arrive: DateTime<Utc>,
 
-    /// The path of the flight plan
-    pub path: Vec<GeoPoint>,
+//     /// The path of the flight plan
+//     pub path: Vec<GeoPoint>,
 
-    /// The estimated trip distance in meters
-    pub distance_meters: f32,
+//     /// The estimated trip distance in meters
+//     pub distance_meters: f32,
 
-    /// The currency type, e.g. USD, EUR
-    pub currency_type: Option<String>,
+//     /// The currency type, e.g. USD, EUR
+//     pub currency_type: Option<String>,
 
-    /// The cost of the trip for the customer
-    pub base_pricing: Option<f32>,
-}
+//     /// The cost of the trip for the customer
+//     pub base_pricing: Option<f32>,
+// }
 
 /// Customer Itinerary Confirm Option
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ItineraryConfirm {
-    /// Itinerary UUID
-    pub id: String,
-
-    /// User ID
-    pub user_id: String,
-
-    /// Weight of Cargo
-    /// TODO(R4): this is a little clunky to re-issue the weight here
-    pub weight_grams: u32,
-}
-
-/// UUIDs of the confirmed flight
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ItineraryConfirmation {
-    /// UUID of the itinerary
-    pub itinerary_id: String,
-
-    /// UUID of the package
-    pub parcel_id: String,
+pub struct ItineraryCreateRequest {
+    /// The svc-cargo itinerary ID to create
+    pub id: String
 }
 
 /// Vertiport Information
@@ -152,13 +148,13 @@ pub struct Vertiport {
 
 /// Confirm itinerary Operation Status
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub enum ConfirmStatus {
-    /// Successful confirmation of itinerary
-    #[schema(example = "Itinerary successfully confirmed.")]
+pub enum ItineraryCreateStatus {
+    /// Successful creation of itinerary
+    #[schema(example = "Itinerary successfully created.")]
     Success(String),
 
-    /// Itinerary already confirmed.
-    #[schema(example = "Could not confirm itinerary.")]
+    /// Itinerary already created.
+    #[schema(example = "Could not create itinerary.")]
     Conflict(String),
 
     /// Itinerary not found by id.
@@ -166,14 +162,81 @@ pub enum ConfirmStatus {
     NotFound(String),
 
     /// Unauthorized Attempt to Confirm Itinerary
-    #[schema(example = "Unauthorized confirmation by someone other than the customer.")]
+    #[schema(example = "Unauthorized creation by someone other than the customer.")]
     Unauthorized(String),
 
     /// Unavailable Service
     Unavailable,
 }
 
-/// Vertiport Information
+/// Request Body Information for Occupations at a Given Vertiport
+#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
+pub struct QueryScheduleRequest {
+    /// The String ID of the vertiport
+    pub vertiport_id: String,
+
+    /// The window to search for occupations
+    pub arrival_window: Option<TimeWindow>,
+
+    /// The maximum number of occupations to return (max: [`MAX_LANDINGS_TO_RETURN`]])
+    pub limit: u32,
+}
+
+/// Occupations Response
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct QueryScheduleResponse {
+    /// list of landing information
+    pub occupations: Vec<Occupation>,
+}
+
+/// Information about a parcel
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct ParcelInfo {
+    /// the unique UUID of the parcel
+    pub parcel_id: String,
+
+    /// the nickname of the parcel
+    pub parcel_nickname: Option<String>
+
+    // TODO(R5): weight, etc.
+}
+
+/// Vertipad Occupation
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct Occupation {
+    /// The unique UUID of the flight plan
+    pub flight_plan_id: String,
+
+    /// Unique vertipad UUID
+    pub vertipad_id: String,
+
+    /// The human-readable label of the vertipad
+    pub vertipad_display_name: Option<String>,
+
+    /// The time window of occupation
+    pub time_window: TimeWindow,
+
+    /// The callsign of the aircraft
+    pub aircraft_callsign: String,
+
+    /// The nickname of the aircraft
+    pub aircraft_nickname: Option<String>,
+
+    /// Parcels being picked up during this occupation
+    pub parcels_acquire: Vec<ParcelInfo>,
+
+    /// Parcels being delivered during this occupation
+    pub parcels_deliver: Vec<ParcelInfo>,
+}
+
+/// Request Body Information for Tracking a Parcel
+#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
+pub struct QueryParcelRequest {
+    /// The UUID of the parcel
+    pub parcel_id: String,
+}
+
+/// ParcelScan information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct ParcelScan {
     /// The unique ID (UUID) of the scanner device
@@ -187,63 +250,14 @@ pub struct ParcelScan {
 
     /// The longitude (float value) of the scan location
     pub longitude: f64,
-}
 
-/// Request Body Information for Landings at a Given Vertiport
-#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
-pub struct LandingsQuery {
-    /// The String ID of the vertiport
-    pub vertiport_id: String,
-
-    /// The window to search for landings
-    pub arrival_window: Option<TimeWindow>,
-
-    /// The maximum number of landings to return (max: [`MAX_LANDINGS_TO_RETURN`]])
-    pub limit: u32,
-}
-
-/// Landings Response
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct LandingsResponse {
-    /// list of landing information
-    pub landings: Vec<Landing>,
-}
-
-/// Landing
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct Landing {
-    /// The String ID of the flight plan
-    pub flight_plan_id: String,
-
-    /// Vertipad Name
-    pub vertipad_name: String,
-
-    /// The callsign of the aircraft
-    pub aircraft_callsign: String,
-
-    /// The time of arrival
-    pub timestamp: DateTime<Utc>,
-    // TODO(R4) Aircraft Nickname
-    // pub aircraft_nickname: String,
-
-    // TODO(R4) Estimated Dwell Time
-    // pub estimated_dwell_seconds: u32,
-
-    // TODO(R4) Parcels to deliver and acquire
-    // pub parcels_deliver: Vec<String>,
-    // pub parcels_acquire: Vec<String>,
-}
-
-/// Request Body Information for Tracking a Parcel Query
-#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
-pub struct TrackingQuery {
-    /// The String ID of the vertiport
-    pub parcel_id: String,
+    /// The timestamp of the scan
+    pub timestamp: DateTime<Utc>
 }
 
 /// Tracking Information Response
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
-pub struct TrackingResponse {
+pub struct QueryParcelResponse {
     /// list of scans
     pub scans: Vec<ParcelScan>,
 }

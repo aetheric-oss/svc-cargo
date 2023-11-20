@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Too many requests
     {
-        let data = VertiportsQuery {
+        let data = QueryVertiportsRequest {
             latitude: 52.37488619450752,
             longitude: 4.916048576268328,
         };
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // POST /cargo/vertiports
     {
-        let data = VertiportsQuery {
+        let data = QueryVertiportsRequest {
             latitude: 52.37488619450752,
             longitude: 4.916048576268328,
         };
@@ -111,7 +111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // POST /cargo/request
     {
         let depart_timestamp_min = Utc::now() + Duration::seconds(60);
-        let data = FlightRequest {
+        let data = QueryItineraryRequest {
             // Arbitrary UUIDs
             vertiport_depart_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
             vertiport_arrive_id: "59e51ad1-d57d-4d2c-bc2d-e2387367d17f".to_string(),
@@ -147,9 +147,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Avoid too many requests
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    // PUT /cargo/confirm
+    // PUT /cargo/create
     {
-        let data = ItineraryConfirm {
+        let data = ItineraryCreateRequest {
             // Arbitrary UUID
             id: Uuid::new_v4().to_string(),
             user_id: Uuid::new_v4().to_string(),
@@ -160,7 +160,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("Failed to serialize data");
         };
 
-        let uri = format!("{}/cargo/confirm", url);
+        let uri = format!("{}/cargo/create", url);
         let Ok(req) = Request::builder()
             .method(Method::PUT)
             .uri(uri.clone())
@@ -182,7 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // DELETE /cargo/cancel
     {
-        let data = ItineraryCancel {
+        let data = ItineraryCancelRequest {
             // arbitrary UUID
             id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
         };
@@ -246,7 +246,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // GET /cargo/flights
     {
-        let data = LandingsQuery {
+        let data = QueryScheduleRequest {
             vertiport_id: Uuid::new_v4().to_string(),
             arrival_window: Some(TimeWindow {
                 timestamp_min: Utc::now(),
@@ -259,7 +259,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("Failed to serialize data");
         };
 
-        let uri = format!("{}/cargo/landings", url);
+        let uri = format!("{}/cargo/occupations", url);
         let Ok(request) = Request::builder()
             .method(Method::GET)
             .uri(uri.clone())

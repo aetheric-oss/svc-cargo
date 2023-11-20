@@ -1,4 +1,4 @@
-use super::rest_types::{FlightLeg, FlightRequest, Itinerary};
+pub use super::rest_types::{FlightPlan, Itinerary, QueryItineraryRequest};
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Extension, Json};
@@ -11,9 +11,7 @@ use lib_common::grpc::Client;
 // Other Service Dependencies
 //
 use svc_pricing_client_grpc::prelude::*;
-use svc_scheduler_client_grpc::prelude::scheduler_storage::{
-    flight_plan::Object as FlightPlanObject, GeoPoint,
-};
+use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
 use svc_scheduler_client_grpc::prelude::*;
 
 /// Don't allow excessively heavy loads
@@ -58,75 +56,14 @@ fn get_distance_meters(path: &[GeoPoint]) -> Result<f32, FlightPlanError> {
     Ok(distance as f32)
 }
 
-impl TryFrom<FlightPlanObject> for FlightLeg {
-    type Error = FlightPlanError;
-
-    fn try_from(plan: FlightPlanObject) -> Result<Self, Self::Error> {
-        let msg_prefix = "(FlightLeg::try_from(FlightPlanObject))";
-
-        let Some(data) = plan.data.clone() else {
-            let error_msg = "no data in flight plan; discarding.";
-            rest_error!("{msg_prefix} {}", &error_msg);
-            return Err(FlightPlanError::Data);
-        };
-
-        let Some(timestamp_depart) = data.origin_timeslot_start.clone() else {
-            let error_msg = "no departure time in flight plan; discarding.";
-            rest_error!("{msg_prefix} {}", &error_msg);
-            return Err(FlightPlanError::DepartureTime);
-        };
-
-        let Some(timestamp_arrive) = data.target_timeslot_start.clone() else {
-            let error_msg = "{msg_prefix} no arrival time in flight plan; discarding.";
-            rest_error!("{msg_prefix} {}", &error_msg);
-            return Err(FlightPlanError::ArrivalTime);
-        };
-
-        let Some(vertiport_depart_id) = data.origin_vertiport_id.clone() else {
-            let error_msg = "{msg_prefix} no departure vertiport in flight plan; discarding.";
-            rest_error!("{msg_prefix} {}", &error_msg);
-            return Err(FlightPlanError::DepartureTime);
-        };
-
-        let Some(vertiport_arrive_id) = data.target_vertiport_id.clone() else {
-            let error_msg = "{msg_prefix} no arrival vertiport in flight plan; discarding.";
-            rest_error!("{msg_prefix} {}", &error_msg);
-            return Err(FlightPlanError::ArrivalTime);
-        };
-
-        let path = match data.path {
-            Some(path) => path.points,
-            _ => {
-                let error_msg = "{msg_prefix} no path in flight plan; discarding.";
-                rest_error!("{msg_prefix} {}", &error_msg);
-                return Err(FlightPlanError::Data);
-            }
-        };
-
-        let distance_meters = get_distance_meters(&path)?;
-
-        Ok(FlightLeg {
-            flight_plan_id: plan.id,
-            vertiport_depart_id,
-            vertiport_arrive_id,
-            timestamp_depart: timestamp_depart.into(),
-            timestamp_arrive: timestamp_arrive.into(),
-            path,
-            distance_meters,
-            base_pricing: None,
-            currency_type: None,
-        })
-    }
-}
-
-// Get Available Flights
+/// Get Available Flights
 ///
 /// Search for available trips and return a list of [`Itinerary`].
 #[utoipa::path(
     post,
     path = "/cargo/request",
     tag = "svc-cargo",
-    request_body = FlightRequest,
+    request_body = QueryItineraryRequest,
     responses(
         (status = 200, description = "List available flight plans", body = [Itinerary]),
         (status = 400, description = "Request body is invalid format"),
@@ -136,7 +73,7 @@ impl TryFrom<FlightPlanObject> for FlightLeg {
 )]
 pub async fn request_flight(
     Extension(mut grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<FlightRequest>,
+    Json(payload): Json<QueryItineraryRequest>,
 ) -> Result<Json<Vec<Itinerary>>, StatusCode> {
     rest_debug!("(request_flight) entry.");
 
@@ -165,7 +102,7 @@ pub async fn request_flight(
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let mut flight_query = scheduler::QueryFlightRequest {
+    let mut flight_query = QueryItineraryRequest {
         is_cargo: true,
         persons: None,
         weight_grams: Some(weight_g),
@@ -213,7 +150,7 @@ pub async fn request_flight(
     //
     // GRPC Request
     //
-    let response = grpc_clients.scheduler.query_flight(flight_query).await;
+    let response = grpc_clients.scheduler.query_itineraries(flight_query).await;
     let Ok(response) = response else {
         let error_msg = "svc-scheduler error.".to_string();
         rest_error!(
@@ -236,20 +173,20 @@ pub async fn request_flight(
     let mut offerings: Vec<Itinerary> = vec![];
     for itinerary in itineraries.into_iter() {
         let id = itinerary.id.clone();
-        let legs = itinerary
+        let flight_plans = itinerary
             .flight_plans
             .into_iter()
-            .map(FlightLeg::try_from)
-            .collect::<Result<Vec<FlightLeg>, FlightPlanError>>();
+            .map(FlightPlan::try_from)
+            .collect::<Result<Vec<FlightPlan>, FlightPlanError>>();
 
-        let Ok(legs) = legs else {
+        let Ok(flight_plans) = flight_plans else {
             rest_error!("(request_flight) Itinerary contained invalid flight plan(s).");
             continue;
         };
 
         offerings.push(Itinerary {
             id,
-            legs,
+            flight_plans,
             base_pricing: None,
             // TODO(R4): Vary currency by region
             currency_type: Some("usd".to_string()),
@@ -266,7 +203,7 @@ pub async fn request_flight(
     for itinerary in &mut offerings {
         let mut pricing_requests = pricing::PricingRequests { requests: vec![] };
 
-        for leg in &itinerary.legs {
+        for leg in &itinerary.flight_plans {
             let pricing_query = pricing::PricingRequest {
                 service_type: pricing::pricing_request::ServiceType::Cargo as i32,
                 distance_km: leg.distance_meters / 1000.0,
@@ -293,7 +230,11 @@ pub async fn request_flight(
 
         let response = response.into_inner();
 
-        for (price, leg) in response.prices.iter().zip(itinerary.legs.iter_mut()) {
+        for (price, leg) in response
+            .prices
+            .iter()
+            .zip(itinerary.flight_plans.iter_mut())
+        {
             leg.base_pricing = Some(*price);
             leg.currency_type = Some("usd".to_string());
         }
@@ -343,7 +284,7 @@ mod tests {
             data: Some(data.clone()),
         };
 
-        let leg: FlightLeg = FlightLeg::try_from(flight_plan.clone()).unwrap();
+        let leg: FlightPlan = FlightPlan::try_from(flight_plan.clone()).unwrap();
         assert_eq!(flight_plan.id, leg.flight_plan_id);
 
         let result_data = data.clone();
@@ -365,7 +306,7 @@ mod tests {
                 id: Uuid::new_v4().to_string(),
                 data: Some(data),
             };
-            let e = FlightLeg::try_from(fp).unwrap_err();
+            let e = FlightPlan::try_from(fp).unwrap_err();
             assert_eq!(e, FlightPlanError::DepartureTime);
         }
 
@@ -376,7 +317,7 @@ mod tests {
                 id: Uuid::new_v4().to_string(),
                 data: Some(data),
             };
-            let e = FlightLeg::try_from(fp).unwrap_err();
+            let e = FlightPlan::try_from(fp).unwrap_err();
             assert_eq!(e, FlightPlanError::ArrivalTime);
         }
 
@@ -393,7 +334,7 @@ mod tests {
                 id: Uuid::new_v4().to_string(),
                 data: Some(data),
             };
-            let e = FlightLeg::try_from(fp).unwrap_err();
+            let e = FlightPlan::try_from(fp).unwrap_err();
             assert_eq!(e, FlightPlanError::Path);
         }
 
@@ -403,7 +344,7 @@ mod tests {
                 data: None,
             };
 
-            let e = FlightLeg::try_from(fp).unwrap_err();
+            let e = FlightPlan::try_from(fp).unwrap_err();
             assert_eq!(e, FlightPlanError::Data);
         }
     }
