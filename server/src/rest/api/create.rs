@@ -14,8 +14,8 @@ use svc_scheduler_client_grpc::prelude::scheduler_storage::flight_plan::FlightPr
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 use svc_storage_client_grpc::link_service::Client as LinkClient;
 use svc_storage_client_grpc::prelude::flight_plan_parcel::RowData as FlightPlanParcel;
+use svc_storage_client_grpc::prelude::AdvancedSearchFilter;
 use svc_storage_client_grpc::prelude::Id as StorageId;
-use svc_storage_client_grpc::prelude::{AdvancedSearchFilter, SortOption, SortOrder};
 use svc_storage_client_grpc::simple_service::Client as SimpleClient;
 use svc_storage_client_grpc::simple_service_linked::Client as SimpleLinkedClient;
 
@@ -119,7 +119,7 @@ async fn scheduler_poll(
     task_id: i64,
     expiry: DateTime<Utc>,
     grpc_clients: GrpcClients,
-) -> Result<(), StatusCode> {
+) -> Result<String, StatusCode> {
     rest_debug!("(scheduler_poll) polling scheduler for task status.");
 
     // Poll scheduler every few seconds
@@ -158,7 +158,7 @@ async fn scheduler_poll(
             TaskStatus::Queued => {
                 // Do nothing
             }
-            TaskStatus::Complete => return Ok(()),
+            TaskStatus::Complete => return Ok(metadata.result.unwrap_or("".to_string())),
             TaskStatus::NotFound => {
                 rest_error!("(create_itinerary) svc-scheduler error.");
                 return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -188,6 +188,7 @@ async fn scheduler_poll(
 /// Create the parcel/book the seat
 async fn create_cargo(
     itinerary: &Itinerary,
+    itinerary_id: &str,
     acquisition_vertiport_id: &str,
     delivery_vertiport_id: &str,
     grpc_clients: &GrpcClients,
@@ -210,20 +211,23 @@ async fn create_cargo(
 
     // TODO(R4): Push to queue, in case this call fails need a retry mechanism
     // Make request, process response
-    let response = match grpc_clients.storage.parcel.insert(data).await {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
-            let error_msg = "svc-parcel-storage error.".to_string();
+    let object = grpc_clients
+        .storage
+        .parcel
+        .insert(data)
+        .await
+        .map_err(|e| {
+            let error_msg = "svc-parcel-storage insert fail.".to_string();
             rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-
-    let Some(object) = response.object else {
-        let error_msg = "svc-parcel-storage insert fail.".to_string();
-        rest_error!("(create_itinerary) {}", &error_msg);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .object
+        .ok_or_else(|| {
+            let error_msg = "svc-parcel-storage insert fail.".to_string();
+            rest_error!("(create_itinerary) {}", &error_msg);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     let cargo_id = object.id;
 
@@ -234,48 +238,45 @@ async fn create_cargo(
     //
     // TODO(R5): this is a bit hacky. with the asynchronous task-based scheduler approach,
     //  maybe return the itinerary id in the TaskResponse in the future
-    let mut filter =
-        AdvancedSearchFilter::search_equals("user_id".to_string(), itinerary.user_id.clone());
-    filter.order_by = vec![SortOption {
-        sort_field: "created_at".to_string(),
-        sort_order: SortOrder::Desc as i32,
-    }];
-    filter.results_per_page = 1;
+    let filter =
+        AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.to_string());
 
-    let db_itinerary = match grpc_clients.storage.itinerary.search(filter).await {
-        Ok(response) => match response.into_inner().list.pop() {
-            Some(itinerary) => itinerary,
-            None => {
-                let error_msg = "svc-storage error, no itineraries found.".to_string();
-                rest_error!("(create_itinerary) {}", &error_msg);
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        },
-        Err(e) => {
+    let db_itinerary = grpc_clients
+        .storage
+        .itinerary
+        .search(filter)
+        .await
+        .map_err(|e| {
             let error_msg = "error on request to svc-storage.".to_string();
             rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .list
+        .pop()
+        .ok_or_else(|| {
+            let error_msg = "svc-storage error, no itineraries found.".to_string();
+            rest_error!("(create_itinerary) {}", &error_msg);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     //
     // Get the linked flight plans
     // Need the IDs of the flight plans to update the flight_plan_parcel table
-    let flight_plans = match grpc_clients
+    let flight_plans = grpc_clients
         .storage
         .itinerary_flight_plan_link
         .get_linked(StorageId {
             id: db_itinerary.id,
         })
         .await
-    {
-        Ok(response) => response.into_inner().list,
-        Err(e) => {
+        .map_err(|e| {
             let error_msg = "error on request to svc-storage.".to_string();
             rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .list;
 
     //
     // Acquisition flight plan
@@ -286,67 +287,130 @@ async fn create_cargo(
     //
     // We could maybe indicate which flight(s) are the acquisition and delivery
     //  in the itinerary record itself, so we don't have to search here.
-    let Some(flight_plan) = flight_plans.iter().find(|fp| match &fp.data {
-        Some(data) => data.origin_vertiport_id == Some(acquisition_vertiport_id.to_string()),
-        None => false,
-    }) else {
-        let error_msg = "flight plan not found.".to_string();
-        rest_error!("(create_itinerary) {}", &error_msg);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
 
-    let acquisition = FlightPlanParcel {
-        flight_plan_id: flight_plan.id.clone(),
-        parcel_id: cargo_id.clone(),
-        acquire: true,
-        deliver: false,
-    };
-
-    let Some(flight_plan) = flight_plans.iter().find(|fp| match &fp.data {
-        Some(data) => data.target_vertiport_id == Some(delivery_vertiport_id.to_string()),
-        None => false,
-    }) else {
-        let error_msg = "flight plan not found.".to_string();
-        rest_error!("(create_itinerary) {}", &error_msg);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
-
-    let delivery = FlightPlanParcel {
-        flight_plan_id: flight_plan.id.clone(),
-        parcel_id: cargo_id.clone(),
-        acquire: false,
-        deliver: true,
-    };
-
-    let _ = match grpc_clients
-        .storage
-        .flight_plan_parcel
-        .insert(acquisition)
-        .await
-    {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
-            let error_msg =
-                "svc-storage error inserting flight_plan_parcel link (acquisition).".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+    for fp in flight_plans {
+        let Some(ref data) = fp.data else {
+            let error_str = "flight plan data not found.".to_string();
+            rest_error!("(create_itinerary) {}", &error_str);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+        };
 
-    let _ = match grpc_clients
-        .storage
-        .flight_plan_parcel
-        .insert(delivery)
-        .await
-    {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
-            let error_msg =
-                "svc-storage error inserting flight_plan_parcel link (delivery).".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        let origin_vertiport_id = match data.origin_vertiport_id {
+            Some(ref id) => id.clone(),
+            None => {
+                let filter = AdvancedSearchFilter::search_equals(
+                    "vertipad_id".to_string(),
+                    data.origin_vertipad_id.clone(),
+                );
+
+                grpc_clients
+                    .storage
+                    .vertipad
+                    .search(filter)
+                    .await
+                    .map_err(|e| {
+                        let error_msg = "svc-storage error searching vertipad.".to_string();
+                        rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .into_inner()
+                    .list
+                    .pop()
+                    .ok_or_else(|| {
+                        let error_msg = "vertipad not found.".to_string();
+                        rest_error!("(create_itinerary) {}", &error_msg);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .data
+                    .ok_or_else(|| {
+                        let error_msg = "vertipad data not found.".to_string();
+                        rest_error!("(create_itinerary) {}", &error_msg);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .vertiport_id
+            }
+        };
+
+        let target_vertiport_id = match data.target_vertiport_id {
+            Some(ref id) => id.clone(),
+            None => {
+                let filter = AdvancedSearchFilter::search_equals(
+                    "vertipad_id".to_string(),
+                    data.target_vertipad_id.clone(),
+                );
+
+                grpc_clients
+                    .storage
+                    .vertipad
+                    .search(filter)
+                    .await
+                    .map_err(|e| {
+                        let error_msg = "svc-storage error searching vertipad.".to_string();
+                        rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .into_inner()
+                    .list
+                    .pop()
+                    .ok_or_else(|| {
+                        let error_msg = "vertipad not found.".to_string();
+                        rest_error!("(create_itinerary) {}", &error_msg);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .data
+                    .ok_or_else(|| {
+                        let error_msg = "vertipad data not found.".to_string();
+                        rest_error!("(create_itinerary) {}", &error_msg);
+                        StatusCode::INTERNAL_SERVER_ERROR
+                    })?
+                    .vertiport_id
+            }
+        };
+
+        if origin_vertiport_id == acquisition_vertiport_id {
+            let acquisition = FlightPlanParcel {
+                flight_plan_id: fp.id.clone(),
+                parcel_id: cargo_id.clone(),
+                acquire: true,
+                deliver: false,
+            };
+
+            let _ = grpc_clients
+                .storage
+                .flight_plan_parcel
+                .insert(acquisition)
+                .await
+                .map_err(|e| {
+                    let error_msg =
+                        "svc-storage error inserting flight_plan_parcel link (acquisition)."
+                            .to_string();
+                    rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
         }
-    };
+
+        if target_vertiport_id == delivery_vertiport_id {
+            let delivery = FlightPlanParcel {
+                flight_plan_id: fp.id.clone(),
+                parcel_id: cargo_id.clone(),
+                acquire: false,
+                deliver: true,
+            };
+
+            let _ = grpc_clients
+                .storage
+                .flight_plan_parcel
+                .insert(delivery)
+                .await
+                .map_err(|e| {
+                    let error_msg =
+                        "svc-storage error inserting flight_plan_parcel link (delivery)."
+                            .to_string();
+                    rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?;
+        }
+    }
 
     Ok(CargoInfo {
         cargo_id,
@@ -406,13 +470,18 @@ pub async fn create_itinerary(
 
     //
     // Poll the scheduler for the task status for a set amount of time
-    scheduler_poll(task_id, expiry, grpc_clients.clone()).await?;
+    let itinerary_id = scheduler_poll(task_id, expiry, grpc_clients.clone()).await?;
+    uuid::Uuid::try_parse(&itinerary_id).map_err(|e| {
+        rest_error!("(create_itinerary) invalid itinerary ID returned: {itinerary_id} {e}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     //
     // Create the parcel/book the seat
     //
     let _ = create_cargo(
         &itinerary,
+        &itinerary_id,
         &itinerary.acquisition_vertiport_id,
         &itinerary.delivery_vertiport_id,
         &grpc_clients,

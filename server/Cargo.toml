@@ -60,7 +60,8 @@ uuid           = { version = "1.5", features = ["v4"] }
 
 [dependencies.svc-scheduler-client-grpc]
 git = "https://github.com/Arrow-air/svc-scheduler.git"
-tag = "latest-develop"
+# tag = "latest-develop"
+branch = "am-smith/update-session-id"
 
 [dependencies.svc-pricing-client-grpc]
 git = "https://github.com/Arrow-air/svc-pricing"
