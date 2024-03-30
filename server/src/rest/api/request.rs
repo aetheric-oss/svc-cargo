@@ -5,10 +5,9 @@ use super::utils::is_uuid;
 use crate::cache::pool::ItineraryPool;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Extension, Json};
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use geo::HaversineDistance;
 use hyper::StatusCode;
-use lib_common::grpc::Client;
 
 //
 // Other Service Dependencies
@@ -24,6 +23,9 @@ use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
+/// Advance notice required
+const ADVANCE_NOTICE_MINUTES: i64 = 5;
+
 /// Errors that can occur when processing a flight plan from the scheduler
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum FlightPlanError {
@@ -34,7 +36,7 @@ pub enum FlightPlanError {
 /// Gets the total distance of a path in meters
 /// TODO(R4): Temporary function to convert path to distance, until svc-storage is updated with it
 fn get_distance_meters(path: &[GeoPoint]) -> Result<f32, FlightPlanError> {
-    let mut distance: f64 = 0.0;
+    // let mut distance: f64 = 0.0;
     if path.len() < 2 {
         rest_error!(
             "(get_distance_meters) path too short: {} segment(s).",
@@ -43,21 +45,19 @@ fn get_distance_meters(path: &[GeoPoint]) -> Result<f32, FlightPlanError> {
         return Err(FlightPlanError::Path);
     }
 
-    let it = path.windows(2);
-    for pair in it {
-        let (p1, p2) = (
+    let distance: f64 = path
+        .windows(2)
+        .map(|pair| {
             geo::point!(
                 x: pair[0].longitude,
                 y: pair[0].latitude
-            ),
-            geo::point!(
+            )
+            .haversine_distance(&geo::point!(
                 x: pair[1].longitude,
                 y: pair[1].latitude
-            ),
-        );
-
-        distance += p1.haversine_distance(&p2);
-    }
+            ))
+        })
+        .sum();
 
     Ok(distance as f32)
 }
@@ -80,6 +80,18 @@ fn validate_payload(payload: &QueryItineraryRequest) -> Result<(), StatusCode> {
 
     if !is_uuid(&payload.origin_vertiport_id) {
         let error_msg = "departure port ID not UUID format.".to_string();
+        rest_error!("(request_flight) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let Some(ref time_window) = payload.time_depart_window else {
+        let error_msg = "missing departure time window.".to_string();
+        rest_error!("(request_flight) {}", &error_msg);
+        return Err(StatusCode::BAD_REQUEST);
+    };
+
+    if time_window.timestamp_min >= time_window.timestamp_max {
+        let error_msg = "invalid departure time window.".to_string();
         rest_error!("(request_flight) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -123,6 +135,16 @@ async fn scheduler_query(
             return Err(StatusCode::BAD_REQUEST);
         }
 
+        let delta = Duration::try_minutes(ADVANCE_NOTICE_MINUTES).ok_or_else(|| {
+            rest_error!("(request_flight) could not get time delta.");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+        if window.timestamp_min <= (current_time + delta) {
+            rest_error!("(request_flight) minimum departure window needs less than {ADVANCE_NOTICE_MINUTES} from now.");
+            return Err(StatusCode::BAD_REQUEST);
+        }
+
         flight_query.earliest_departure_time = Some(window.timestamp_min.into());
     }
 
@@ -136,20 +158,19 @@ async fn scheduler_query(
     //
     // GRPC Request
     //
-    let response = grpc_clients.scheduler.query_flight(flight_query).await;
-    let Ok(response) = response else {
-        let error_msg = "svc-scheduler error.".to_string();
-        rest_error!(
-            "(request_flight) {} {:?}",
-            &error_msg,
-            response.unwrap_err()
-        );
-        rest_error!("(request_flight) invalidating svc-scheduler client.");
-        grpc_clients.scheduler.invalidate().await;
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
+    let result = grpc_clients
+        .scheduler
+        .query_flight(flight_query)
+        .await
+        .map_err(|e| {
+            rest_error!("(request_flight) svc-scheduler error {:?}", e);
 
-    Ok(response.into_inner().itineraries)
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .itineraries;
+
+    Ok(result)
 }
 
 /// Unpacks flight plans from the scheduler into a format that
