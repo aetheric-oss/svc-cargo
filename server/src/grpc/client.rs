@@ -2,6 +2,7 @@
 use tokio::sync::OnceCell;
 
 use lib_common::grpc::Client;
+use svc_pricing_client_grpc::prelude::Client as _;
 use svc_pricing_client_grpc::prelude::PricingClient;
 use svc_scheduler_client_grpc::prelude::SchedulerClient;
 use svc_storage_client_grpc::prelude::Clients;

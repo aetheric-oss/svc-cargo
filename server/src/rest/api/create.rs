@@ -234,10 +234,6 @@ async fn create_cargo(
     ///////////////////////////////
     // Get the itinerary and flight plans just created for user
     ///////////////////////////////
-
-    //
-    // TODO(R5): this is a bit hacky. with the asynchronous task-based scheduler approach,
-    //  maybe return the itinerary id in the TaskResponse in the future
     let filter =
         AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.to_string());
 
