@@ -13,12 +13,15 @@ use hyper::StatusCode;
 // Other Service Dependencies
 //
 use crate::rest::rest_types::CurrencyUnit;
+use std::collections::HashMap;
 use svc_pricing_client_grpc::prelude::*;
 use svc_scheduler_client_grpc::client::Itinerary as SchedulerItinerary;
 use svc_scheduler_client_grpc::client::QueryFlightRequest;
 use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
 use svc_scheduler_client_grpc::prelude::FlightPriority;
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
+use svc_storage_client_grpc::prelude::Id;
+use svc_storage_client_grpc::simple_service::Client;
 
 /// Don't allow excessively heavy loads
 const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
@@ -257,32 +260,78 @@ async fn update_pricing(
     }
 
     // Make request, process response
-    let response = grpc_clients
+    let bill = grpc_clients
         .pricing
         .get_pricing(pricing::PricingRequests { requests })
-        .await;
-
-    let response = match response {
-        Err(e) => {
+        .await
+        .map_err(|e| {
             rest_error!("(request_flight) svc-pricing error: {e}");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-        Ok(response) => response.into_inner(),
-    };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner();
 
-    for (price, flight_plan) in response
+    let mut names: HashMap<String, String> = HashMap::new();
+    for flight_plan in itinerary.flight_plans.iter() {
+        if !names.contains_key(&flight_plan.origin_vertiport_id) {
+            let Ok(object) = grpc_clients
+                .storage
+                .vertiport
+                .get_by_id(Id {
+                    id: flight_plan.origin_vertiport_id.clone(),
+                })
+                .await
+            else {
+                continue;
+            };
+
+            let Some(data) = object.into_inner().data else {
+                continue;
+            };
+
+            names.insert(flight_plan.origin_vertiport_id.clone(), data.name);
+        }
+
+        if !names.contains_key(&flight_plan.target_vertiport_id) {
+            let Ok(object) = grpc_clients
+                .storage
+                .vertiport
+                .get_by_id(Id {
+                    id: flight_plan.target_vertiport_id.clone(),
+                })
+                .await
+            else {
+                continue;
+            };
+
+            let Some(data) = object.into_inner().data else {
+                continue;
+            };
+
+            names.insert(flight_plan.target_vertiport_id.clone(), data.name);
+        }
+    }
+
+    itinerary.invoice = bill
         .prices
         .iter()
         .zip(itinerary.flight_plans.iter_mut())
-    {
-        itinerary.invoice.push(InvoiceItem {
-            item: format!(
-                "({})=>({})",
-                flight_plan.origin_vertiport_id, flight_plan.target_vertiport_id
-            ),
-            cost: *price,
-        });
-    }
+        .map(|(price, plan)| {
+            let origin_vertiport_name = names
+                .get(&plan.origin_vertiport_id)
+                .unwrap_or(&plan.origin_vertiport_id)
+                .clone();
+
+            let target_vertiport_name = names
+                .get(&plan.target_vertiport_id)
+                .unwrap_or(&plan.target_vertiport_id)
+                .clone();
+
+            InvoiceItem {
+                item: format!("\"{origin_vertiport_name}\" => \"{target_vertiport_name}\"",),
+                cost: *price,
+            }
+        })
+        .collect();
 
     Ok(())
 }
@@ -382,10 +431,12 @@ mod tests {
                 GeoPoint {
                     latitude: 52.37488619450752,
                     longitude: 4.916048576268328,
+                    altitude: 10.0,
                 },
                 GeoPoint {
                     latitude: 52.37488619450752,
                     longitude: 4.916048576268328,
+                    altitude: 10.0,
                 },
             ],
         });
