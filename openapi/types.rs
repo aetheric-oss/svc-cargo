@@ -408,6 +408,9 @@ pub struct CargoScan {
     /// The longitude (float value) of the scan location
     pub longitude: f64,
 
+    /// The altitude (float value) of the scan location
+    pub altitude: f64,
+
     /// The timestamp of the scan
     pub timestamp: DateTime<Utc>
 }

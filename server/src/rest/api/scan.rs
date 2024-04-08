@@ -61,6 +61,7 @@ pub async fn scan_parcel(
         geo_location: Some(GeoPoint {
             latitude: payload.longitude,
             longitude: payload.latitude,
+            altitude: payload.altitude,
         }),
         created_at: Some(Utc::now().into()),
     };

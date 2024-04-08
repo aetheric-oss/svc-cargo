@@ -299,6 +299,7 @@ pub async fn query_scans(
                 scanner_id: data.scanner_id,
                 latitude: geo_location.latitude,
                 longitude: geo_location.longitude,
+                altitude: geo_location.altitude,
                 timestamp: created_at.into(),
             })
         })

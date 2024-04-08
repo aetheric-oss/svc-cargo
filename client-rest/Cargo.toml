@@ -28,11 +28,11 @@ uuid  = { version = "1.5", features = ["v4"] }
 
 [dev-dependencies.lib-common]
 features = ["grpc"]
-git      = "https://github.com/Arrow-air/lib-common.git"
+git      = "https://github.com/aetheric-oss/lib-common.git"
 tag      = "latest-develop"
 
 [dependencies.svc-scheduler-client-grpc]
-git = "https://github.com/Arrow-air/svc-scheduler"
+git = "https://github.com/aetheric-oss/svc-scheduler"
 tag = "latest-develop"
 
 [[example]]
