@@ -33,16 +33,16 @@ appenders:
         base: 1
     encoder:
       kind: json
-  cache:
+  backend_requests:
     kind: rolling_file
-    path: "logs/cache.log"
+    path: "logs/backend_requests.log"
     policy:
       trigger:
         kind: size
         limit: 20mb
       roller:
         kind: fixed_window
-        pattern: logs/cache_{}.gz
+        pattern: logs/backend_requests_{}.gz
         count: 5
         base: 1
     encoder:
@@ -76,10 +76,10 @@ loggers:
     level: info
     appenders:
       - rest_requests
-  app::cache:
+  backend::cache:
     level: info
     appenders:
-      - cache
+      - backend_requests
   test::ut:
     level: info
     appenders:
