@@ -216,7 +216,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let data = CargoScan {
             scanner_id: Uuid::new_v4().to_string(),
-            cargo_id: Uuid::new_v4().to_string(),
+            parcel_id: Uuid::new_v4().to_string(),
             latitude: 52.37474373455002,
             longitude: 4.9167298573581295,
             altitude: 0.0,
