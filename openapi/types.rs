@@ -350,7 +350,7 @@ pub struct QueryScheduleResponse {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct CargoInfo {
     /// the unique UUID of the parcel or passenger
-    pub cargo_id: String,
+    pub parcel_id: String,
 
     // /// the nickname of the parcel or passenger
     // pub cargo_nickname: Option<String>
@@ -400,7 +400,7 @@ pub struct CargoScan {
     pub scanner_id: String,
 
     /// The unique ID (UUID) of the parcel or passenger
-    pub cargo_id: String,
+    pub parcel_id: String,
 
     /// The latitude (float value) of the scan location
     pub latitude: f64,

@@ -27,7 +27,7 @@ pub async fn scan_parcel(
 ) -> Result<(), StatusCode> {
     rest_debug!("(scan_parcel) entry.");
 
-    if !is_uuid(&payload.cargo_id) {
+    if !is_uuid(&payload.parcel_id) {
         let error_msg = "parcel ID not in UUID format.".to_string();
         rest_error!("(scan_parcel) {}", &error_msg);
         return Err(StatusCode::BAD_REQUEST);
@@ -57,7 +57,7 @@ pub async fn scan_parcel(
     // Make request, process response
     let data = CargoScanData {
         scanner_id: payload.scanner_id,
-        parcel_id: payload.cargo_id,
+        parcel_id: payload.parcel_id,
         geo_location: Some(GeoPoint {
             latitude: payload.longitude,
             longitude: payload.latitude,

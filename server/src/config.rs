@@ -26,6 +26,10 @@ pub struct Config {
     pub scheduler_port_grpc: u16,
     /// host to be used for the scheduler client
     pub scheduler_host_grpc: String,
+    /// host to be used for the contact client
+    pub contact_host_grpc: String,
+    /// port to be used for the contact client
+    pub contact_port_grpc: u16,
     /// path to log configuration YAML file
     pub log_config: String,
     /// Rate limit - requests per second for REST requests
@@ -58,6 +62,8 @@ impl Config {
             pricing_host_grpc: String::from("svc-pricing"),
             scheduler_port_grpc: 50051,
             scheduler_host_grpc: String::from("svc-scheduler"),
+            contact_host_grpc: String::from("svc-contact"),
+            contact_port_grpc: 50051,
             log_config: String::from("log4rs.yaml"),
             rest_request_limit_per_second: 2,
             rest_concurrency_limit_per_service: 5,
@@ -85,6 +91,8 @@ impl Config {
             .set_default("pricing_host_grpc", default_config.pricing_host_grpc)?
             .set_default("scheduler_port_grpc", default_config.scheduler_port_grpc)?
             .set_default("scheduler_host_grpc", default_config.scheduler_host_grpc)?
+            .set_default("contact_host_grpc", default_config.contact_host_grpc)?
+            .set_default("contact_port_grpc", default_config.contact_port_grpc)?
             .set_default("log_config", default_config.log_config)?
             .set_default(
                 "rest_concurrency_limit_per_service",
@@ -123,6 +131,8 @@ mod tests {
         assert_eq!(config.pricing_host_grpc, String::from("svc-pricing"));
         assert_eq!(config.scheduler_port_grpc, 50051);
         assert_eq!(config.scheduler_host_grpc, String::from("svc-scheduler"));
+        assert_eq!(config.contact_host_grpc, String::from("svc-contact"));
+        assert_eq!(config.contact_port_grpc, 50051);
         assert_eq!(config.log_config, String::from("log4rs.yaml"));
         assert_eq!(config.rest_concurrency_limit_per_service, 5);
         assert_eq!(config.rest_request_limit_per_second, 2);
@@ -150,6 +160,8 @@ mod tests {
         std::env::set_var("PRICING_PORT_GRPC", "54321");
         std::env::set_var("SCHEDULER_HOST_GRPC", "test_host_scheduler");
         std::env::set_var("SCHEDULER_PORT_GRPC", "12354");
+        std::env::set_var("CONTACT_HOST_GRPC", "test_host_contact");
+        std::env::set_var("CONTACT_PORT_GRPC", "11111");
         std::env::set_var("LOG_CONFIG", "config_file.yaml");
         std::env::set_var("REST_CONCURRENCY_LIMIT_PER_SERVICE", "255");
         std::env::set_var("REST_REQUEST_LIMIT_PER_SECOND", "255");
@@ -173,6 +185,8 @@ mod tests {
         assert_eq!(config.pricing_port_grpc, 54321);
         assert_eq!(config.pricing_host_grpc, String::from("test_host_pricing"));
         assert_eq!(config.scheduler_port_grpc, 12354);
+        assert_eq!(config.contact_host_grpc, String::from("test_host_contact"));
+        assert_eq!(config.contact_port_grpc, 11111);
         assert_eq!(
             config.scheduler_host_grpc,
             String::from("test_host_scheduler")
