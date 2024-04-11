@@ -2,7 +2,8 @@
 use tokio::sync::OnceCell;
 
 use lib_common::grpc::Client;
-use svc_pricing_client_grpc::prelude::Client as _;
+use svc_contact_client_grpc::prelude::Client as _;
+use svc_contact_client_grpc::prelude::ContactClient;
 use svc_pricing_client_grpc::prelude::PricingClient;
 use svc_scheduler_client_grpc::prelude::SchedulerClient;
 use svc_storage_client_grpc::prelude::Clients;
@@ -31,6 +32,8 @@ pub struct GrpcClients {
     pub scheduler: SchedulerClient,
     /// A GrpcClient provided by the svc_pricing_grpc_client module
     pub pricing: PricingClient,
+    /// A GrpcClient provided by the svc_contact_grpc_client module
+    pub contact: ContactClient,
 }
 
 impl GrpcClients {
@@ -49,6 +52,11 @@ impl GrpcClients {
                 &config.pricing_host_grpc,
                 config.pricing_port_grpc,
                 "pricing",
+            ),
+            contact: ContactClient::new_client(
+                &config.contact_host_grpc,
+                config.contact_port_grpc,
+                "contact",
             ),
         }
     }
@@ -99,6 +107,10 @@ mod tests {
         let scheduler = &clients.scheduler;
         ut_debug!("(test_grpc_clients_default) scheduler: {:?}", scheduler);
         assert_eq!(scheduler.get_name(), "scheduler");
+
+        let contact = &clients.contact;
+        ut_debug!("(test_grpc_clients_default) contact: {:?}", contact);
+        assert_eq!(contact.get_name(), "contact");
 
         ut_info!("(test_grpc_clients_default) Success.");
     }

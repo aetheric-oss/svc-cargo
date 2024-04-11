@@ -84,6 +84,10 @@ tag = "latest-develop"
 git = "https://github.com/aetheric-oss/lib-common"
 tag = "latest-develop"
 
+[dependencies.svc-contact-client-grpc]
+git = "https://github.com/aetheric-oss/svc-contact"
+tag = "latest-develop"
+
 [dependencies.log4rs]
 features = [
   "background_rotation",

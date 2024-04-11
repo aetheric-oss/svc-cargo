@@ -295,7 +295,7 @@ pub async fn query_scans(
             };
 
             Some(CargoScan {
-                cargo_id: scan.id,
+                parcel_id: scan.id,
                 scanner_id: data.scanner_id,
                 latitude: geo_location.latitude,
                 longitude: geo_location.longitude,

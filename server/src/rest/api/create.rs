@@ -7,6 +7,8 @@ use axum::{extract::Extension, Json};
 use chrono::{DateTime, Duration, Utc};
 use hyper::StatusCode;
 use num_traits::FromPrimitive;
+use svc_contact_client_grpc::client::CargoConfirmationRequest;
+use svc_contact_client_grpc::prelude::ContactServiceClient;
 use svc_scheduler_client_grpc::client::{
     CreateItineraryRequest, TaskRequest, TaskResponse, TaskStatus, TaskStatusRationale,
 };
@@ -14,7 +16,6 @@ use svc_scheduler_client_grpc::prelude::scheduler_storage::flight_plan::FlightPr
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 use svc_storage_client_grpc::link_service::Client as LinkClient;
 use svc_storage_client_grpc::prelude::flight_plan_parcel::RowData as FlightPlanParcel;
-use svc_storage_client_grpc::prelude::AdvancedSearchFilter;
 use svc_storage_client_grpc::prelude::Id as StorageId;
 use svc_storage_client_grpc::simple_service::Client as SimpleClient;
 use svc_storage_client_grpc::simple_service_linked::Client as SimpleLinkedClient;
@@ -185,6 +186,36 @@ async fn scheduler_poll(
     Err(StatusCode::REQUEST_TIMEOUT)
 }
 
+/// Get the parent vertiport ID from one of its vertipad IDs
+///  Necessary if the flight plan specifies vertipads and not vertiports
+async fn get_vertiport_id_from_vertipad_id(
+    grpc_clients: &GrpcClients,
+    vertipad_id: &str,
+) -> Result<String, StatusCode> {
+    let vertiport_id = grpc_clients
+        .storage
+        .vertipad
+        .get_by_id(StorageId {
+            id: vertipad_id.to_string(),
+        })
+        .await
+        .map_err(|e| {
+            let error_msg = "svc-storage error searching vertipad.".to_string();
+            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .data
+        .ok_or_else(|| {
+            let error_msg = "vertipad data not found.".to_string();
+            rest_error!("(create_itinerary) {}", &error_msg);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .vertiport_id;
+
+    Ok(vertiport_id)
+}
+
 /// Create the parcel/book the seat
 async fn create_cargo(
     itinerary: &Itinerary,
@@ -193,6 +224,7 @@ async fn create_cargo(
     delivery_vertiport_id: &str,
     grpc_clients: &GrpcClients,
 ) -> Result<CargoInfo, StatusCode> {
+    rest_debug!("(create_cargo) creating parcel for itinerary_id {itinerary_id}: acquisition_vertiport_id: {acquisition_vertiport_id}, delivery_vertiport_id: {delivery_vertiport_id}.");
     //
     // TODO(R5): Doing all of these in a transaction would be
     //  nice, to rollback any changes if there are errors at
@@ -229,32 +261,7 @@ async fn create_cargo(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    let cargo_id = object.id;
-
-    ///////////////////////////////
-    // Get the itinerary and flight plans just created for user
-    ///////////////////////////////
-    let filter =
-        AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.to_string());
-
-    let db_itinerary = grpc_clients
-        .storage
-        .itinerary
-        .search(filter)
-        .await
-        .map_err(|e| {
-            let error_msg = "error on request to svc-storage.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-        .into_inner()
-        .list
-        .pop()
-        .ok_or_else(|| {
-            let error_msg = "svc-storage error, no itineraries found.".to_string();
-            rest_error!("(create_itinerary) {}", &error_msg);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let parcel_id = object.id;
 
     //
     // Get the linked flight plans
@@ -263,7 +270,7 @@ async fn create_cargo(
         .storage
         .itinerary_flight_plan_link
         .get_linked(StorageId {
-            id: db_itinerary.id,
+            id: itinerary_id.to_string(),
         })
         .await
         .map_err(|e| {
@@ -273,6 +280,12 @@ async fn create_cargo(
         })?
         .into_inner()
         .list;
+
+    if flight_plans.is_empty() {
+        let error_str = "no flight plans found for itinerary_id.".to_string();
+        rest_error!("(create_itinerary) {}", &error_str);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
 
     //
     // Acquisition flight plan
@@ -284,134 +297,89 @@ async fn create_cargo(
     // We could maybe indicate which flight(s) are the acquisition and delivery
     //  in the itinerary record itself, so we don't have to search here.
 
-    for fp in flight_plans {
-        let Some(ref data) = fp.data else {
+    let mut fps: Vec<(String, String, String)> = vec![];
+    for fp in flight_plans.into_iter() {
+        let data = fp.data.ok_or_else(|| {
             let error_str = "flight plan data not found.".to_string();
             rest_error!("(create_itinerary) {}", &error_str);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         let origin_vertiport_id = match data.origin_vertiport_id {
             Some(ref id) => id.clone(),
             None => {
-                let filter = AdvancedSearchFilter::search_equals(
-                    "vertipad_id".to_string(),
-                    data.origin_vertipad_id.clone(),
-                );
-
-                grpc_clients
-                    .storage
-                    .vertipad
-                    .search(filter)
-                    .await
-                    .map_err(|e| {
-                        let error_msg = "svc-storage error searching vertipad.".to_string();
-                        rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .into_inner()
-                    .list
-                    .pop()
-                    .ok_or_else(|| {
-                        let error_msg = "vertipad not found.".to_string();
-                        rest_error!("(create_itinerary) {}", &error_msg);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .data
-                    .ok_or_else(|| {
-                        let error_msg = "vertipad data not found.".to_string();
-                        rest_error!("(create_itinerary) {}", &error_msg);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .vertiport_id
+                get_vertiport_id_from_vertipad_id(grpc_clients, &data.origin_vertipad_id).await?
             }
         };
 
         let target_vertiport_id = match data.target_vertiport_id {
             Some(ref id) => id.clone(),
             None => {
-                let filter = AdvancedSearchFilter::search_equals(
-                    "vertipad_id".to_string(),
-                    data.target_vertipad_id.clone(),
-                );
-
-                grpc_clients
-                    .storage
-                    .vertipad
-                    .search(filter)
-                    .await
-                    .map_err(|e| {
-                        let error_msg = "svc-storage error searching vertipad.".to_string();
-                        rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .into_inner()
-                    .list
-                    .pop()
-                    .ok_or_else(|| {
-                        let error_msg = "vertipad not found.".to_string();
-                        rest_error!("(create_itinerary) {}", &error_msg);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .data
-                    .ok_or_else(|| {
-                        let error_msg = "vertipad data not found.".to_string();
-                        rest_error!("(create_itinerary) {}", &error_msg);
-                        StatusCode::INTERNAL_SERVER_ERROR
-                    })?
-                    .vertiport_id
+                get_vertiport_id_from_vertipad_id(grpc_clients, &data.target_vertipad_id).await?
             }
         };
 
-        if origin_vertiport_id == acquisition_vertiport_id {
-            let acquisition = FlightPlanParcel {
-                flight_plan_id: fp.id.clone(),
-                parcel_id: cargo_id.clone(),
-                acquire: true,
-                deliver: false,
-            };
-
-            let _ = grpc_clients
-                .storage
-                .flight_plan_parcel
-                .insert(acquisition)
-                .await
-                .map_err(|e| {
-                    let error_msg =
-                        "svc-storage error inserting flight_plan_parcel link (acquisition)."
-                            .to_string();
-                    rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })?;
-        }
-
-        if target_vertiport_id == delivery_vertiport_id {
-            let delivery = FlightPlanParcel {
-                flight_plan_id: fp.id.clone(),
-                parcel_id: cargo_id.clone(),
-                acquire: false,
-                deliver: true,
-            };
-
-            let _ = grpc_clients
-                .storage
-                .flight_plan_parcel
-                .insert(delivery)
-                .await
-                .map_err(|e| {
-                    let error_msg =
-                        "svc-storage error inserting flight_plan_parcel link (delivery)."
-                            .to_string();
-                    rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-                    StatusCode::INTERNAL_SERVER_ERROR
-                })?;
-        }
+        fps.push((fp.id, origin_vertiport_id, target_vertiport_id));
     }
 
-    Ok(CargoInfo {
-        cargo_id,
-        // cargo_nickname
-    })
+    let acquisition_id = &fps
+        .iter()
+        .find(|fp| fp.1 == acquisition_vertiport_id)
+        .ok_or_else(|| {
+            let error_str = "acquisition flight plan not found.".to_string();
+            rest_error!("(create_itinerary) {}", &error_str);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .0;
+
+    let delivery_id = &fps
+        .iter()
+        .find(|fp| fp.2 == delivery_vertiport_id)
+        .ok_or_else(|| {
+            let error_str = "delivery flight plan not found.".to_string();
+            rest_error!("(create_itinerary) {}", &error_str);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .0;
+
+    let records = if acquisition_id == delivery_id {
+        vec![FlightPlanParcel {
+            flight_plan_id: acquisition_id.clone(),
+            parcel_id: parcel_id.clone(),
+            acquire: true,
+            deliver: true,
+        }]
+    } else {
+        vec![
+            FlightPlanParcel {
+                flight_plan_id: acquisition_id.clone(),
+                parcel_id: parcel_id.clone(),
+                acquire: true,
+                deliver: false,
+            },
+            FlightPlanParcel {
+                flight_plan_id: delivery_id.clone(),
+                parcel_id: parcel_id.clone(),
+                acquire: false,
+                deliver: true,
+            },
+        ]
+    };
+
+    for parcel_record in records {
+        grpc_clients
+            .storage
+            .flight_plan_parcel
+            .insert(parcel_record)
+            .await
+            .map_err(|e| {
+                let error_msg = "svc-storage error inserting flight_plan_parcel link.".to_string();
+                rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+    }
+
+    Ok(CargoInfo { parcel_id })
 }
 
 /// Confirm an itinerary
@@ -475,7 +443,7 @@ pub async fn create_itinerary(
     //
     // Create the parcel/book the seat
     //
-    let _ = create_cargo(
+    let cargo_data = create_cargo(
         &itinerary,
         &itinerary_id,
         &itinerary.acquisition_vertiport_id,
@@ -488,6 +456,21 @@ pub async fn create_itinerary(
     // If the scheduler task was successful, charge the customer
     //
     payment_confirm(invoice_total, itinerary.currency_unit, false).await?;
+
+    // Continue even if the contact service fails
+    let data = CargoConfirmationRequest {
+        parcel_id: cargo_data.parcel_id,
+        itinerary_id,
+    };
+
+    let _ = grpc_clients
+        .contact
+        .cargo_confirmation(data)
+        .await
+        .map_err(|e| {
+            let error_msg = "svc-contact error.".to_string();
+            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+        });
 
     Ok(())
 }
