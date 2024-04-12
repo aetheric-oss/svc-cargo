@@ -2491,7 +2491,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "svc-cargo"
-version = "0.10.1-develop.1"
+version = "0.10.1-develop.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -2534,7 +2534,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.10.1-develop.1"
+version = "0.10.1-develop.3"
 dependencies = [
  "cfg-if",
  "lib-common 0.2.1-develop.0 (git+https://github.com/aetheric-oss/lib-common?tag=latest-develop)",
@@ -2550,7 +2550,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-rest"
-version = "0.10.1-develop.1"
+version = "0.10.1-develop.3"
 dependencies = [
  "chrono",
  "hyper",
@@ -2579,8 +2579,8 @@ dependencies = [
 
 [[package]]
 name = "svc-gis-client-grpc"
-version = "0.1.1-develop.9"
-source = "git+https://github.com/aetheric-oss/svc-gis.git?tag=latest-develop#b2bf46004ec345c4e4d38cda8d4db44e52fb7f72"
+version = "0.1.1-develop.10"
+source = "git+https://github.com/aetheric-oss/svc-gis.git?tag=latest-develop#a37b1e183ec43e6067c0056f01efee80569e4c25"
 dependencies = [
  "cfg-if",
  "chrono",
