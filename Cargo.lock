@@ -2491,7 +2491,7 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "svc-cargo"
-version = "0.10.1-develop.5"
+version = "0.10.1-develop.6"
 dependencies = [
  "anyhow",
  "axum",
@@ -2534,7 +2534,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-grpc"
-version = "0.10.1-develop.5"
+version = "0.10.1-develop.6"
 dependencies = [
  "cfg-if",
  "lib-common 0.2.1-develop.0 (git+https://github.com/aetheric-oss/lib-common?tag=latest-develop)",
@@ -2550,7 +2550,7 @@ dependencies = [
 
 [[package]]
 name = "svc-cargo-client-rest"
-version = "0.10.1-develop.5"
+version = "0.10.1-develop.6"
 dependencies = [
  "chrono",
  "hyper",
@@ -2601,8 +2601,8 @@ dependencies = [
 
 [[package]]
 name = "svc-pricing"
-version = "0.5.2-develop.2"
-source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#23b5a384d742a25f26b12a2b3728597c0ef21013"
+version = "0.5.2-develop.3"
+source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#72a184afdd103c9915bd6418cae794ca0b175eb5"
 dependencies = [
  "anyhow",
  "cargo-husky",
@@ -2628,8 +2628,8 @@ dependencies = [
 
 [[package]]
 name = "svc-pricing-client-grpc"
-version = "0.5.2-develop.2"
-source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#23b5a384d742a25f26b12a2b3728597c0ef21013"
+version = "0.5.2-develop.3"
+source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#72a184afdd103c9915bd6418cae794ca0b175eb5"
 dependencies = [
  "cfg-if",
  "lib-common 0.2.1-develop.0 (git+https://github.com/aetheric-oss/lib-common?tag=latest-develop)",
@@ -2642,8 +2642,8 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler"
-version = "0.4.1-develop.7"
-source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#e06ed1643a4351486b5c9d7f2614c56a677fc67b"
+version = "0.4.1-develop.8"
+source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#9d495e919cea856db212ef1e4e0110d0e326e3a1"
 dependencies = [
  "anyhow",
  "cargo-husky",
@@ -2687,8 +2687,8 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler-client-grpc"
-version = "0.4.1-develop.7"
-source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#e06ed1643a4351486b5c9d7f2614c56a677fc67b"
+version = "0.4.1-develop.8"
+source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#9d495e919cea856db212ef1e4e0110d0e326e3a1"
 dependencies = [
  "cfg-if",
  "chrono",
@@ -2710,8 +2710,8 @@ dependencies = [
 
 [[package]]
 name = "svc-storage"
-version = "0.11.1-develop.13"
-source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#92c966b6116b6b8f525bdef29ece1356c9878092"
+version = "0.11.1-develop.14"
+source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#4da0a5575a4053f9297098dc21fb1273afd05744"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2757,8 +2757,8 @@ dependencies = [
 
 [[package]]
 name = "svc-storage-client-grpc"
-version = "0.11.1-develop.13"
-source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#92c966b6116b6b8f525bdef29ece1356c9878092"
+version = "0.11.1-develop.14"
+source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#4da0a5575a4053f9297098dc21fb1273afd05744"
 dependencies = [
  "anyhow",
  "cfg-if",
