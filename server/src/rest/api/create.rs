@@ -64,10 +64,10 @@ async fn payment_confirm(
 async fn get_draft_itinerary(itinerary_id: &str) -> Result<Itinerary, StatusCode> {
     rest_debug!("(get_draft_itinerary) getting itinerary from redis.");
 
-    let Some(mut pool) = crate::cache::pool::get_pool().await else {
+    let mut pool = crate::cache::pool::get_pool().await.ok_or_else(|| {
         rest_error!("(get_draft_itinerary) unable to get redis pool.");
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     pool.get_itinerary(itinerary_id.to_string())
         .await
