@@ -2,7 +2,7 @@
 description = "Arrow cargo service gRPC client"
 keywords    = ["vtol", "client", "grpc", "cargo"] # max 5
 name        = "svc-cargo-client-grpc"
-version     = "0.10.1-develop.5"
+version     = "0.10.1-develop.6"
 
 authors.workspace      = true
 categories.workspace   = true
