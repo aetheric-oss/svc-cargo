@@ -2,7 +2,7 @@
 description = "Arrow cargo service REST client"
 keywords    = ["vtol", "client", "rest", "cargo"] # max 5
 name        = "svc-cargo-client-rest"
-version     = "0.10.1-develop.3"
+version     = "0.10.1-develop.4"
 
 authors.workspace      = true
 categories.workspace   = true
