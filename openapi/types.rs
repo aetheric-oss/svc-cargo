@@ -386,13 +386,6 @@ pub struct Occupation {
     pub cargo_deliver: Vec<CargoInfo>,
 }
 
-/// Request Body Information for Tracking a Parcel
-#[derive(Debug, Clone, IntoParams, ToSchema, Deserialize, Serialize)]
-pub struct QueryParcelRequest {
-    /// The UUID of the parcel
-    pub parcel_id: String,
-}
-
 /// CargoScan information
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct CargoScan {

@@ -100,10 +100,10 @@ pub async fn rest_server(
             routing::post(api::query::query_vertiports),
         )
         .route("/cargo/scan", routing::put(api::scan::scan_parcel))
-        .route("/cargo/track", routing::get(api::query::query_scans))
+        .route("/cargo/track/:id", routing::get(api::query::query_scans))
         .route(
             "/cargo/occupations",
-            routing::get(api::query::query_occupations),
+            routing::post(api::query::query_occupations),
         )
         .layer(
             CorsLayer::new()
