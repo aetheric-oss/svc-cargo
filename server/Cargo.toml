@@ -2,7 +2,7 @@
 description = "Arrow cargo service gRPC and REST servers"
 keywords    = ["vtol", "server", "grpc", "rest", "cargo"] # max 5
 name        = "svc-cargo"
-version     = "0.10.1-develop.6"
+version     = "0.10.1-develop.7"
 
 authors.workspace      = true
 categories.workspace   = true
