@@ -36,7 +36,6 @@ use utoipa::OpenApi;
             rest_types::CurrencyUnit,
             rest_types::QueryScheduleRequest,
             rest_types::QueryScheduleResponse,
-            rest_types::QueryParcelRequest,
             rest_types::QueryParcelResponse,
             rest_types::GeoPoint,
             rest_types::PaymentInfo,

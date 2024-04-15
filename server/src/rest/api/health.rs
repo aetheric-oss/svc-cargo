@@ -108,7 +108,7 @@ pub async fn health_check(
 
     match ok {
         true => {
-            rest_info!("(health_check) healthy, all dependencies running.");
+            rest_debug!("(health_check) healthy, all dependencies running.");
             Ok(())
         }
         false => {
