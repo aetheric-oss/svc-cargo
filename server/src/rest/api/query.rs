@@ -1,11 +1,11 @@
-use super::rest_types::{CargoScan, QueryParcelRequest, QueryParcelResponse};
+use super::rest_types::{CargoScan, QueryParcelResponse};
 use super::rest_types::{
     Occupation, QueryScheduleRequest, QueryScheduleResponse, TimeWindow, MAX_LANDINGS_TO_RETURN,
 };
 use super::rest_types::{QueryVertiportsRequest, Vertiport};
 use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
-use axum::{extract::Extension, Json};
+use axum::{extract::Path, Extension, Json};
 use hyper::StatusCode;
 use svc_storage_client_grpc::prelude::{AdvancedSearchFilter, SortOption, SortOrder};
 use svc_storage_client_grpc::simple_service::Client;
@@ -93,7 +93,7 @@ pub async fn query_vertiports(
 /// Request a list of occupations for a vertiport.
 /// No more than [`MAX_LANDINGS_TO_RETURN`] occupations will be returned.
 #[utoipa::path(
-    get,
+    post,
     path = "/cargo/occupations",
     tag = "svc-cargo",
     responses(
@@ -221,38 +221,36 @@ pub async fn query_occupations(
     Ok(Json(QueryScheduleResponse { occupations }))
 }
 
-/// Request a list of occupations for a vertiport.
-/// No more than [`MAX_LANDINGS_TO_RETURN`] occupations will be returned.
+/// Request a list of scans for a parcel.
 #[utoipa::path(
     get,
-    path = "/cargo/track",
+    path = "/cargo/track/{id}",
     tag = "svc-cargo",
     responses(
-        (status = 200, description = "Parcel scans retrieved successfully"),
+        (status = 200, description = "Parcel scans retrieved successfully", body = QueryParcelResponse),
         (status = 400, description = "Request body is invalid format"),
         (status = 500, description = "Dependencies returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     ),
-    request_body = QueryParcelRequest
+    params(
+        ("id" = String, Path, description = "Parcel id"),
+    )
 )]
 pub async fn query_scans(
     Extension(grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<QueryParcelRequest>,
-) -> Result<Json<QueryParcelResponse>, StatusCode> {
-    rest_debug!("(query_scans) entry.");
-    if !is_uuid(&payload.parcel_id) {
-        rest_error!(
-            "(query_scans) parcel ID not in UUID format: {}",
-            payload.parcel_id
-        );
-        return Err(StatusCode::BAD_REQUEST);
+    Path(parcel_id): Path<String>,
+) -> Result<Json<QueryParcelResponse>, (StatusCode, String)> {
+    rest_info!("(query_scans) entry.");
+    if !is_uuid(&parcel_id) {
+        rest_error!("(query_scans) parcel ID not in UUID format: {}", parcel_id);
+        return Err((StatusCode::BAD_REQUEST, "Invalid parcel id".to_string()));
     }
 
     //
-    // Request flight plans
+    // Request parcel scans
     //
     let mut filter =
-        AdvancedSearchFilter::search_equals("parcel_id".to_string(), payload.parcel_id.clone());
+        AdvancedSearchFilter::search_equals("parcel_id".to_string(), parcel_id.clone());
 
     filter.order_by = vec![SortOption {
         sort_field: "created_at".to_string(),
@@ -264,7 +262,10 @@ pub async fn query_scans(
         Err(e) => {
             let error_msg = "svc-storage error.".to_string();
             rest_error!("(query_scans) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Backend error.".to_string(),
+            ));
         }
     };
 
