@@ -5,7 +5,7 @@ use super::utils::is_uuid;
 use crate::cache::pool::ItineraryPool;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Extension, Json};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use geo::HaversineDistance;
 use hyper::StatusCode;
 
@@ -28,6 +28,10 @@ const MAX_CARGO_WEIGHT_G: u32 = 1_000_000; // 1000 kg
 
 /// Advance notice required
 const ADVANCE_NOTICE_MINUTES: i64 = 5;
+
+/// Max window to search within
+/// TODO(R5): for the demo
+const MAX_TIME_WINDOW_HOURS: i64 = 8;
 
 /// Errors that can occur when processing a flight plan from the scheduler
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -87,12 +91,7 @@ fn validate_payload(payload: &QueryItineraryRequest) -> Result<(), StatusCode> {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let Some(ref time_window) = payload.time_depart_window else {
-        let error_msg = "missing departure time window.".to_string();
-        rest_error!("(request_flight) {}", &error_msg);
-        return Err(StatusCode::BAD_REQUEST);
-    };
-
+    let time_window = payload.time_depart_window;
     if time_window.timestamp_min >= time_window.timestamp_max {
         let error_msg = "invalid departure time window.".to_string();
         rest_error!("(request_flight) {}", &error_msg);
@@ -120,36 +119,33 @@ async fn scheduler_query(
 
     let current_time = Utc::now();
 
-    // Time windows are properly specified
-    if let Some(window) = payload.time_arrive_window {
-        if window.timestamp_max <= current_time {
-            let error_msg = "max arrival time is in the past.".to_string();
-            rest_error!("(request_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        }
-
-        flight_query.latest_arrival_time = Some(window.timestamp_max.into());
+    let window = payload.time_depart_window;
+    if window.timestamp_max <= current_time {
+        let error_msg = "max depart time is in the past.".to_string();
+        rest_error!("(request_flight) {} {:?}", &error_msg, window.timestamp_max);
+        return Err(StatusCode::BAD_REQUEST);
     }
 
-    if let Some(window) = payload.time_depart_window {
-        if window.timestamp_max <= current_time {
-            let error_msg = "max depart time is in the past.".to_string();
-            rest_error!("(request_flight) {} {:?}", &error_msg, window.timestamp_max);
-            return Err(StatusCode::BAD_REQUEST);
-        }
+    let delta = Duration::try_minutes(ADVANCE_NOTICE_MINUTES).ok_or_else(|| {
+        rest_error!("(request_flight) could not get time delta.");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
-        let delta = Duration::try_minutes(ADVANCE_NOTICE_MINUTES).ok_or_else(|| {
-            rest_error!("(request_flight) could not get time delta.");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-        if window.timestamp_min <= (current_time + delta) {
-            rest_error!("(request_flight) minimum departure window needs less than {ADVANCE_NOTICE_MINUTES} from now.");
-            return Err(StatusCode::BAD_REQUEST);
-        }
-
-        flight_query.earliest_departure_time = Some(window.timestamp_min.into());
+    if window.timestamp_min <= (current_time + delta) {
+        rest_error!("(request_flight) minimum departure window needs less than {ADVANCE_NOTICE_MINUTES} from now.");
+        return Err(StatusCode::BAD_REQUEST);
     }
+
+    flight_query.earliest_departure_time = Some(window.timestamp_min.into());
+
+    let delta = Duration::try_hours(MAX_TIME_WINDOW_HOURS).ok_or_else(|| {
+        rest_error!("(request_flight) could not get time delta.");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let latest: DateTime<Utc> = Utc::now() + delta;
+
+    flight_query.latest_arrival_time = Some(latest.into());
 
     if flight_query.earliest_departure_time.is_none() || flight_query.latest_arrival_time.is_none()
     {
