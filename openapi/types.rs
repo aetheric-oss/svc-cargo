@@ -165,10 +165,7 @@ pub struct QueryItineraryRequest {
     pub target_vertiport_id: String,
 
     /// The window of departure
-    pub time_depart_window: Option<TimeWindow>,
-
-    /// The window of arrival
-    pub time_arrive_window: Option<TimeWindow>,
+    pub time_depart_window: TimeWindow,
 
     /// The estimated weight of cargo
     pub cargo_weight_g: u32,
