@@ -115,11 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Arbitrary UUIDs
             origin_vertiport_id: "cabcdd14-03ab-4ac0-b58c-dd4175bc587e".to_string(),
             target_vertiport_id: "59e51ad1-d57d-4d2c-bc2d-e2387367d17f".to_string(),
-            time_depart_window: Some(TimeWindow {
+            time_depart_window: TimeWindow {
                 timestamp_min: depart_timestamp_min,
                 timestamp_max: depart_timestamp_min + Duration::seconds(360),
-            }),
-            time_arrive_window: None,
+            },
             cargo_weight_g: 200,
             user_id: Uuid::new_v4().to_string(),
         };
