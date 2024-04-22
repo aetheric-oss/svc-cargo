@@ -4,8 +4,9 @@ pub use super::rest_types::{
 use crate::cache::pool::ItineraryPool;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Extension, Json};
-use chrono::{DateTime, Duration, Utc};
 use hyper::StatusCode;
+use lib_common::time::{DateTime, Duration, Utc};
+use lib_common::uuid::to_uuid;
 use num_traits::FromPrimitive;
 use svc_contact_client_grpc::client::CargoConfirmationRequest;
 use svc_contact_client_grpc::prelude::ContactServiceClient;
@@ -21,7 +22,7 @@ use svc_storage_client_grpc::simple_service::Client as SimpleClient;
 use svc_storage_client_grpc::simple_service_linked::Client as SimpleLinkedClient;
 
 /// Polling interval for scheduler task statuses
-const SCHEDULER_TASK_POLL_INTERVAL_SECONDS: u64 = 5;
+const SCHEDULER_TASK_POLL_INTERVAL_SECONDS: u64 = 3;
 
 /// Timeout for scheduler task statuses
 const SCHEDULER_TASK_TIMEOUT_SECONDS: i64 = 60;
@@ -60,24 +61,9 @@ async fn payment_confirm(
     Ok(())
 }
 
-/// Pull the itinerary details from Redis
-async fn get_draft_itinerary(itinerary_id: &str) -> Result<Itinerary, StatusCode> {
-    rest_debug!("(get_draft_itinerary) getting itinerary from redis.");
-
-    let mut pool = crate::cache::pool::get_pool().await.ok_or_else(|| {
-        rest_error!("(get_draft_itinerary) unable to get redis pool.");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    pool.get_itinerary(itinerary_id.to_string())
-        .await
-        .map_err(|e| {
-            rest_error!("(get_draft_itinerary) unable to get itinerary from redis: {e}");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })
-}
-
 /// Make a request to the scheduler to create an itinerary
+#[cfg(not(tarpaulin_include))]
+// no_coverage: (R5) need backends to test (integration)
 async fn scheduler_request(
     itinerary: &Itinerary,
     expiry: DateTime<Utc>,
@@ -85,16 +71,16 @@ async fn scheduler_request(
 ) -> Result<TaskResponse, StatusCode> {
     rest_debug!("(scheduler_request) creating itinerary with scheduler.");
 
-    let Ok(flight_plans) = itinerary
+    let flight_plans = itinerary
         .flight_plans
         .clone()
         .into_iter()
         .map(|fp| fp.try_into())
         .collect::<Result<Vec<SchedulerFlightPlan>, _>>()
-    else {
-        rest_error!("(scheduler_request) invalid flight plan data.");
-        return Err(StatusCode::BAD_REQUEST);
-    };
+        .map_err(|e| {
+            rest_error!("(scheduler_request) invalid flight plan data: {e}");
+            StatusCode::BAD_REQUEST
+        })?;
 
     let data = CreateItineraryRequest {
         flight_plans,
@@ -108,14 +94,15 @@ async fn scheduler_request(
         .create_itinerary(data)
         .await
         .map_err(|e| {
-            let error_msg = "svc-scheduler error.".to_string();
-            rest_error!("(scheduler_request) {} {:?}", &error_msg, e);
+            rest_error!("(scheduler_request) svc-scheduler error {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })
         .map(|response| response.into_inner())
 }
 
 /// Poll the scheduler for the task status for a set amount of time
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 async fn scheduler_poll(
     task_id: i64,
     expiry: DateTime<Utc>,
@@ -127,33 +114,34 @@ async fn scheduler_poll(
     let interval = tokio::time::Duration::from_secs(SCHEDULER_TASK_POLL_INTERVAL_SECONDS);
     let request = TaskRequest { task_id };
 
-    // TODO(R4): Tasks from svc-cargo should expire after N seconds
     //  Provide expiry in request to the scheduler.
     while Utc::now() < expiry {
         // give the scheduler time to process the request
         tokio::time::sleep(interval).await;
 
-        let task = match grpc_clients.scheduler.get_task_status(request).await {
-            Ok(response) => response.into_inner(),
-            Err(e) => {
-                let error_msg = "svc-scheduler error.".to_string();
-                rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-                return Err(StatusCode::INTERNAL_SERVER_ERROR);
-            }
-        };
+        let task = grpc_clients
+            .scheduler
+            .get_task_status(request)
+            .await
+            .map_err(|e| {
+                rest_error!("(create_itinerary) svc-scheduler error: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?
+            .into_inner();
 
-        let Some(metadata) = task.task_metadata else {
-            rest_error!("(create_itinerary) no metadata for task: {:?}", task);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
+        let task_id = task.task_id;
+        let metadata = task.task_metadata.ok_or_else(|| {
+            rest_error!("(create_itinerary) no metadata for task #{task_id}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-        let Some(status) = FromPrimitive::from_i32(metadata.status) else {
+        let status = FromPrimitive::from_i32(metadata.status).ok_or_else(|| {
             rest_error!(
                 "(create_itinerary) unrecognized task status: {:?}",
                 metadata.status
             );
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
         match status {
             TaskStatus::Queued => {
@@ -186,37 +174,9 @@ async fn scheduler_poll(
     Err(StatusCode::REQUEST_TIMEOUT)
 }
 
-/// Get the parent vertiport ID from one of its vertipad IDs
-///  Necessary if the flight plan specifies vertipads and not vertiports
-async fn get_vertiport_id_from_vertipad_id(
-    grpc_clients: &GrpcClients,
-    vertipad_id: &str,
-) -> Result<String, StatusCode> {
-    let vertiport_id = grpc_clients
-        .storage
-        .vertipad
-        .get_by_id(StorageId {
-            id: vertipad_id.to_string(),
-        })
-        .await
-        .map_err(|e| {
-            let error_msg = "svc-storage error searching vertipad.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-        .into_inner()
-        .data
-        .ok_or_else(|| {
-            let error_msg = "vertipad data not found.".to_string();
-            rest_error!("(create_itinerary) {}", &error_msg);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-        .vertiport_id;
-
-    Ok(vertiport_id)
-}
-
 /// Create the parcel/book the seat
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 async fn create_cargo(
     itinerary: &Itinerary,
     itinerary_id: &str,
@@ -241,7 +201,7 @@ async fn create_cargo(
         status: ParcelStatus::Notdroppedoff as i32,
     };
 
-    // TODO(R4): Push to queue, in case this call fails need a retry mechanism
+    // TODO(R5): Push to queue, in case this call fails need a retry mechanism
     // Make request, process response
     let object = grpc_clients
         .storage
@@ -308,14 +268,22 @@ async fn create_cargo(
         let origin_vertiport_id = match data.origin_vertiport_id {
             Some(ref id) => id.clone(),
             None => {
-                get_vertiport_id_from_vertipad_id(grpc_clients, &data.origin_vertipad_id).await?
+                super::utils::get_vertiport_id_from_vertipad_id(
+                    grpc_clients,
+                    &data.origin_vertipad_id,
+                )
+                .await?
             }
         };
 
         let target_vertiport_id = match data.target_vertiport_id {
             Some(ref id) => id.clone(),
             None => {
-                get_vertiport_id_from_vertipad_id(grpc_clients, &data.target_vertipad_id).await?
+                super::utils::get_vertiport_id_from_vertipad_id(
+                    grpc_clients,
+                    &data.target_vertipad_id,
+                )
+                .await?
             }
         };
 
@@ -397,15 +365,41 @@ async fn create_cargo(
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 pub async fn create_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCreateRequest>,
 ) -> Result<(), StatusCode> {
     rest_debug!("(create_itinerary) entry.");
 
+    to_uuid(&payload.id).ok_or_else(|| {
+        rest_error!("(create_itinerary) invalid itinerary UUID.");
+        StatusCode::BAD_REQUEST
+    })?;
+
+    to_uuid(&payload.user_id).ok_or_else(|| {
+        rest_error!("(create_itinerary) invalid user UUID.");
+        StatusCode::BAD_REQUEST
+    })?;
+
     //
     // See if itinerary id exists
-    let itinerary = get_draft_itinerary(&payload.id).await?;
+    let itinerary = crate::cache::pool::get_pool()
+        .await
+        .map_err(|e| {
+            rest_error!("(get_draft_itinerary) unable to get redis pool: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .lock()
+        .await
+        .get_itinerary(payload.id.to_string())
+        .await
+        .map_err(|e| {
+            rest_error!("(get_draft_itinerary) unable to get itinerary from redis: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
     let invoice_total = itinerary.invoice.iter().map(|i| i.cost).sum::<f32>();
 
     //
@@ -435,8 +429,8 @@ pub async fn create_itinerary(
     //
     // Poll the scheduler for the task status for a set amount of time
     let itinerary_id = scheduler_poll(task_id, expiry, grpc_clients.clone()).await?;
-    uuid::Uuid::try_parse(&itinerary_id).map_err(|e| {
-        rest_error!("(create_itinerary) invalid itinerary ID returned: {itinerary_id} {e}");
+    to_uuid(&itinerary_id).ok_or_else(|| {
+        rest_error!("(create_itinerary) invalid itinerary UUID.");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -473,4 +467,71 @@ pub async fn create_itinerary(
         });
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lib_common::uuid::Uuid;
+
+    #[tokio::test]
+    async fn test_scheduler_poll() {
+        let config = crate::config::Config::default();
+        let grpc_clients = GrpcClients::default(config);
+        let task_id = 12345;
+
+        // will timeout
+        let expiry = Utc::now() - Duration::seconds(1);
+        let result = scheduler_poll(task_id, expiry, grpc_clients.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(result, StatusCode::REQUEST_TIMEOUT);
+
+        // TODO: tell svc-scheduler to fail the task
+
+        // will complete
+        let expiry = Utc::now() + Duration::seconds(1);
+        let _ = scheduler_poll(task_id, expiry, grpc_clients.clone())
+            .await
+            .unwrap();
+        // assert_eq!(result, StatusCode::REQUEST_TIMEOUT);
+    }
+
+    #[tokio::test]
+    async fn test_payment_confirm() {
+        let total = 100.0;
+        let currency_unit = CurrencyUnit::Usd;
+        let dry_run = true;
+
+        let result = payment_confirm(total, currency_unit, dry_run).await;
+        assert!(result.is_ok());
+
+        let dry_run = false;
+        let result = payment_confirm(total, currency_unit, dry_run).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_create_itinerary() {
+        let config = crate::config::Config::default();
+        let grpc_clients = GrpcClients::default(config);
+
+        // bad itinerary id
+        let mut request = ItineraryCreateRequest {
+            id: "invalid".to_string(),
+            user_id: Uuid::new_v4().to_string(),
+        };
+        let error = create_itinerary(Extension(grpc_clients.clone()), Json(request.clone()))
+            .await
+            .unwrap_err();
+        assert_eq!(error, StatusCode::BAD_REQUEST);
+
+        // bad user id
+        request.id = Uuid::new_v4().to_string();
+        request.user_id = "invalid".to_string();
+        let error = create_itinerary(Extension(grpc_clients.clone()), Json(request.clone()))
+            .await
+            .unwrap_err();
+        assert_eq!(error, StatusCode::BAD_REQUEST);
+    }
 }

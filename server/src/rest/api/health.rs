@@ -14,6 +14,8 @@ use svc_storage_client_grpc::prelude::{ReadyRequest, SimpleClient};
         (status = 503, description = "Service is unhealthy, one or more dependencies unavailable.")
     )
 )]
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test failures (integration)
 pub async fn health_check(
     Extension(grpc_clients): Extension<GrpcClients>,
 ) -> Result<(), StatusCode> {

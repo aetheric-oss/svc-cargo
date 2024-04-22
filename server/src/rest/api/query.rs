@@ -1,14 +1,134 @@
-use super::rest_types::{CargoScan, QueryParcelResponse};
 use super::rest_types::{
-    Occupation, QueryScheduleRequest, QueryScheduleResponse, TimeWindow, MAX_LANDINGS_TO_RETURN,
+    CargoScan, Occupation, QueryParcelResponse, QueryScheduleRequest, QueryScheduleResponse,
+    QueryVertiportsRequest, TimeWindow, Vertiport, MAX_LANDINGS_TO_RETURN,
 };
-use super::rest_types::{QueryVertiportsRequest, Vertiport};
-use super::utils::is_uuid;
 use crate::grpc::client::GrpcClients;
 use axum::{extract::Path, Extension, Json};
 use hyper::StatusCode;
-use svc_storage_client_grpc::prelude::{AdvancedSearchFilter, SortOption, SortOrder};
+use lib_common::uuid::{to_uuid, Uuid};
+use std::fmt::{self, Display, Formatter};
+use svc_storage_client_grpc::prelude::{
+    flight_plan, parcel_scan, vertiport, AdvancedSearchFilter, SortOption, SortOrder,
+};
 use svc_storage_client_grpc::simple_service::Client;
+
+#[derive(Debug, PartialEq)]
+pub enum ScanError {
+    Data,
+    Location,
+    CreatedAt,
+}
+
+impl TryFrom<parcel_scan::Object> for CargoScan {
+    type Error = ScanError;
+
+    fn try_from(obj: parcel_scan::Object) -> Result<Self, Self::Error> {
+        let data = obj.data.ok_or_else(|| {
+            rest_error!("(CargoScan) parcel scan data is None.");
+            ScanError::Data
+        })?;
+
+        let geo_location = data.geo_location.ok_or_else(|| {
+            rest_error!("(CargoScan) parcel scan location is None.");
+            ScanError::Location
+        })?;
+
+        let created_at = data.created_at.ok_or_else(|| {
+            rest_error!("(CargoScan) parcel scan created_at is None.");
+            ScanError::CreatedAt
+        })?;
+
+        Ok(CargoScan {
+            parcel_id: obj.id,
+            scanner_id: data.scanner_id,
+            latitude: geo_location.latitude,
+            longitude: geo_location.longitude,
+            altitude: geo_location.altitude,
+            timestamp: created_at.into(),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VertiportError {
+    Data,
+    Location,
+    Exterior,
+}
+
+impl TryFrom<vertiport::Object> for Vertiport {
+    type Error = VertiportError;
+
+    fn try_from(obj: vertiport::Object) -> Result<Self, Self::Error> {
+        let data = obj.data.ok_or_else(|| {
+            rest_error!("(Vertiport) vertiport data is None.");
+            VertiportError::Data
+        })?;
+
+        let location = data.geo_location.ok_or_else(|| {
+            rest_error!("(Vertiport) vertiport location is None.");
+            VertiportError::Location
+        })?;
+
+        let exterior = location.exterior.ok_or_else(|| {
+            rest_error!("(Vertiport) vertiport exterior is None.");
+            VertiportError::Exterior
+        })?;
+
+        let points = exterior.points;
+        let latitude = points.iter().map(|pt| pt.latitude).sum::<f64>() / points.len() as f64;
+        let longitude = points.iter().map(|pt| pt.longitude).sum::<f64>() / points.len() as f64;
+
+        Ok(Vertiport {
+            id: obj.id,
+            label: data.name,
+            latitude: latitude as f32,
+            longitude: longitude as f32,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum OccupationError {
+    Data,
+    TargetTimeslotStart,
+    TargetTimeslotEnd,
+}
+
+impl TryFrom<flight_plan::Object> for Occupation {
+    type Error = OccupationError;
+
+    fn try_from(obj: flight_plan::Object) -> Result<Self, Self::Error> {
+        let data = obj.data.ok_or_else(|| {
+            rest_error!("(Occupation) flight plan data is None.");
+            OccupationError::Data
+        })?;
+
+        let target_timeslot_start = data.target_timeslot_start.ok_or_else(|| {
+            rest_error!("(Occupation) flight plan target_timeslot_start is None.");
+            OccupationError::TargetTimeslotStart
+        })?;
+
+        let target_timeslot_end = data.target_timeslot_end.ok_or_else(|| {
+            rest_error!("(Occupation) flight plan target_timeslot_end is None.");
+            OccupationError::TargetTimeslotEnd
+        })?;
+
+        Ok(Occupation {
+            flight_plan_id: obj.id,
+            vertipad_id: data.target_vertipad_id,
+            vertipad_display_name: None,
+            time_window: TimeWindow {
+                timestamp_min: target_timeslot_start.into(),
+                timestamp_max: target_timeslot_end.into(),
+            },
+            aircraft_id: data.vehicle_id,
+            aircraft_nickname: None,
+            cargo_acquire: vec![],
+            cargo_deliver: vec![],
+        })
+    }
+}
 
 /// Get Regional Vertiports
 #[utoipa::path(
@@ -22,6 +142,8 @@ use svc_storage_client_grpc::simple_service::Client;
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 pub async fn query_vertiports(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryVertiportsRequest>,
@@ -51,43 +173,63 @@ pub async fn query_vertiports(
     );
 
     // Make request, process response
-    let Ok(response) = grpc_clients.storage.vertiport.search(filter).await else {
-        let error_msg = "error response from svc-storage.".to_string();
-        rest_error!("(query_vertiports) {}.", &error_msg);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    };
-
-    let mut vertiports: Vec<Vertiport> = vec![];
-    for obj in response.into_inner().list {
-        let Some(data) = obj.data else {
-            rest_error!("(query_vertiports) vertiport data is None.");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
-
-        let Some(location) = data.geo_location else {
-            rest_error!("(query_vertiports) vertiport location is None.");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
-
-        let Some(exterior) = location.exterior else {
-            rest_error!("(query_vertiports) vertiport exterior is None.");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        };
-
-        let points = exterior.points;
-        let latitude = points.iter().map(|pt| pt.latitude).sum::<f64>() / points.len() as f64;
-        let longitude = points.iter().map(|pt| pt.longitude).sum::<f64>() / points.len() as f64;
-
-        vertiports.push(Vertiport {
-            id: obj.id,
-            label: data.name,
-            latitude: latitude as f32,
-            longitude: longitude as f32,
-        })
-    }
+    let vertiports = grpc_clients
+        .storage
+        .vertiport
+        .search(filter)
+        .await
+        .map_err(|e| {
+            rest_error!("(query_vertiports) svc-storage error. {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .list
+        .into_iter()
+        .filter_map(|vertiport| Vertiport::try_from(vertiport).ok())
+        .collect::<Vec<Vertiport>>();
 
     rest_info!("(query_vertiports) found {} vertiports.", vertiports.len());
     Ok(Json(vertiports))
+}
+
+#[derive(Debug, PartialEq)]
+pub enum QueryError {
+    VertiportId,
+    ArrivalWindow,
+    Limit,
+}
+
+impl Display for QueryError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            QueryError::VertiportId => write!(f, "Invalid vertiport ID"),
+            QueryError::ArrivalWindow => write!(f, "Arrival window not specified"),
+            QueryError::Limit => {
+                write!(f, "Specified limit beyond max of {MAX_LANDINGS_TO_RETURN}")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct OccupationsRequest {
+    limit: i32,
+    vertiport_id: Uuid,
+    arrival_window: TimeWindow,
+}
+
+fn occupations_request_validation(
+    request: QueryScheduleRequest,
+) -> Result<OccupationsRequest, QueryError> {
+    if request.limit > MAX_LANDINGS_TO_RETURN {
+        return Err(QueryError::Limit);
+    }
+
+    Ok(OccupationsRequest {
+        limit: request.limit as i32,
+        vertiport_id: to_uuid(&request.vertiport_id).ok_or(QueryError::VertiportId)?,
+        arrival_window: request.arrival_window.ok_or(QueryError::ArrivalWindow)?,
+    })
 }
 
 /// Request a list of occupations for a vertiport.
@@ -104,118 +246,70 @@ pub async fn query_vertiports(
     ),
     request_body = QueryScheduleRequest
 )]
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 pub async fn query_occupations(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryScheduleRequest>,
 ) -> Result<Json<QueryScheduleResponse>, StatusCode> {
     rest_debug!("(query_occupations) entry.");
 
-    if payload.limit > MAX_LANDINGS_TO_RETURN {
-        let error_msg = format!(
-            "requested number of occupations exceeds maximum of {}.",
-            MAX_LANDINGS_TO_RETURN
-        );
-        rest_error!("(query_occupations) {}", &error_msg);
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    if !is_uuid(&payload.vertiport_id) {
-        rest_error!(
-            "(query_occupations) vertiport ID not in UUID format: {}",
-            payload.vertiport_id
-        );
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    let Some(arrival_window) = payload.arrival_window else {
-        let error_msg = "arrival window not specified.".to_string();
-        rest_error!("(query_occupations) {}", &error_msg);
-        return Err(StatusCode::BAD_REQUEST);
-    };
+    let payload = occupations_request_validation(payload).map_err(|e| {
+        rest_error!("(query_occupations) {}", e);
+        StatusCode::BAD_REQUEST
+    })?;
 
     //
     // Request flight plans
     //
     let mut filter = AdvancedSearchFilter::search_equals(
         "destination_vertiport_id".to_string(),
-        payload.vertiport_id.clone(),
+        payload.vertiport_id.to_string(),
     )
     .and_between(
         "scheduled_arrival".to_string(),
-        arrival_window.timestamp_min.to_string(),
-        arrival_window.timestamp_max.to_string(),
+        payload.arrival_window.timestamp_min.to_string(),
+        payload.arrival_window.timestamp_max.to_string(),
     );
-    filter.results_per_page = payload.limit as i32;
+    filter.results_per_page = payload.limit;
     filter.order_by = vec![SortOption {
         sort_field: "scheduled_arrival".to_string(),
         sort_order: SortOrder::Asc as i32,
     }];
 
-    let response = match grpc_clients.storage.flight_plan.search(filter).await {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
+    let mut occupations = grpc_clients
+        .storage
+        .flight_plan
+        .search(filter)
+        .await
+        .map_err(|e| {
             rest_error!("(query_occupations) svc-storage error. {:?}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .list
+        .into_iter()
+        .filter_map(|plan| Occupation::try_from(plan).ok())
+        .collect::<Vec<Occupation>>();
 
-    let mut occupations: Vec<Occupation> = vec![];
-    for fp in response.list {
-        let Some(data) = fp.data else {
-            rest_error!("(query_occupations) flight plan data is None.");
-
-            // Skip this flight plan, other occupations should still be reported
-            continue;
-        };
-
-        let Some(timestamp_min) = data.target_timeslot_start else {
-            rest_error!("(query_occupations) flight plan has no scheduled arrival.");
-
-            // Skip this flight plan, other occupations should still be reported
-            continue;
-        };
-
-        let Some(timestamp_max) = data.target_timeslot_end else {
-            rest_error!("(query_occupations) flight plan has no scheduled arrival.");
-
-            // Skip this flight plan, other occupations should still be reported
-            continue;
-        };
-
-        let vertipad_display_name =
-            match super::utils::get_vertipad_details(&data.target_vertipad_id, &grpc_clients).await
-            {
+    for occupation in &mut occupations {
+        occupation.vertipad_display_name =
+            match super::utils::get_vertipad_data(&occupation.vertipad_id, &grpc_clients).await {
                 Ok(vertipad) => Some(vertipad.name),
                 Err(e) => {
-                    let error_msg = "svc-storage error.".to_string();
-                    rest_error!("(query_occupations) {} {:?}", &error_msg, e);
+                    rest_warn!("(Occupation) couldn't get vertipad display name: {:?}", e);
                     None
                 }
             };
 
-        let aircraft_nickname =
-            match super::utils::get_vehicle_details(&data.vehicle_id, &grpc_clients).await {
+        occupation.aircraft_nickname =
+            match super::utils::get_vehicle_data(&occupation.aircraft_id, &grpc_clients).await {
                 Ok(vehicle) => Some(vehicle.registration_number),
                 Err(e) => {
-                    let error_msg = "svc-storage error.".to_string();
-                    rest_error!("(query_occupations) {} {:?}", &error_msg, e);
+                    rest_warn!("(Occupation) couldn't get vehicle nickname: {:?}", e);
                     None
                 }
             };
-
-        occupations.push(Occupation {
-            flight_plan_id: fp.id,
-            vertipad_id: data.target_vertipad_id,
-            vertipad_display_name,
-            time_window: TimeWindow {
-                timestamp_min: timestamp_min.into(),
-                timestamp_max: timestamp_max.into(),
-            },
-            aircraft_id: data.vehicle_id,
-            aircraft_nickname,
-            cargo_acquire: vec![],
-            cargo_deliver: vec![],
-        })
     }
 
     Ok(Json(QueryScheduleResponse { occupations }))
@@ -236,15 +330,17 @@ pub async fn query_occupations(
         ("id" = String, Path, description = "Parcel id"),
     )
 )]
+#[cfg(not(tarpaulin_include))]
+// no_coverage: need backends to test (integration)
 pub async fn query_scans(
     Extension(grpc_clients): Extension<GrpcClients>,
     Path(parcel_id): Path<String>,
-) -> Result<Json<QueryParcelResponse>, (StatusCode, String)> {
+) -> Result<Json<QueryParcelResponse>, StatusCode> {
     rest_info!("(query_scans) entry.");
-    if !is_uuid(&parcel_id) {
-        rest_error!("(query_scans) parcel ID not in UUID format: {}", parcel_id);
-        return Err((StatusCode::BAD_REQUEST, "Invalid parcel id".to_string()));
-    }
+    to_uuid(&parcel_id).ok_or_else(|| {
+        rest_error!("(query_scans) parcel ID not in UUID format.");
+        StatusCode::BAD_REQUEST
+    })?;
 
     //
     // Request parcel scans
@@ -257,54 +353,253 @@ pub async fn query_scans(
         sort_order: SortOrder::Asc as i32,
     }];
 
-    let response = match grpc_clients.storage.parcel_scan.search(filter).await {
-        Ok(response) => response.into_inner().list,
-        Err(e) => {
-            let error_msg = "svc-storage error.".to_string();
-            rest_error!("(query_scans) {} {:?}", &error_msg, e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Backend error.".to_string(),
-            ));
-        }
-    };
-
-    let scans: Vec<CargoScan> = response
+    let scans = grpc_clients
+        .storage
+        .parcel_scan
+        .search(filter)
+        .await
+        .map_err(|e| {
+            rest_error!("(query_scans) svc-storage error {:?}", e);
+            StatusCode::NOT_FOUND
+        })?
+        .into_inner()
+        .list
         .into_iter()
-        .filter_map(|scan| {
-            let Some(data) = scan.data else {
-                rest_error!("(query_scans) No data in parcel scan data for {}.", scan.id);
-                return None;
-            };
-
-            let Some(geo_location) = data.geo_location else {
-                rest_error!(
-                    "(query_scans) No geo_location in parcel scan data for {}.",
-                    scan.id
-                );
-
-                return None;
-            };
-
-            let Some(created_at) = data.created_at else {
-                rest_error!(
-                    "(query_scans) No created_at in parcel scan data for {}.",
-                    scan.id
-                );
-
-                return None;
-            };
-
-            Some(CargoScan {
-                parcel_id: scan.id,
-                scanner_id: data.scanner_id,
-                latitude: geo_location.latitude,
-                longitude: geo_location.longitude,
-                altitude: geo_location.altitude,
-                timestamp: created_at.into(),
-            })
-        })
+        .filter_map(|scan| CargoScan::try_from(scan).ok())
         .collect::<Vec<CargoScan>>();
 
     Ok(Json(QueryParcelResponse { scans }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lib_common::time::Utc;
+    use svc_storage_client_grpc::prelude::GeoPolygon;
+
+    #[test]
+    fn test_try_from_vertiport_object() {
+        let data = vertiport::mock::get_data_obj();
+        let mut object = vertiport::Object {
+            id: "123".to_string(),
+            data: Some(data.clone()),
+        };
+
+        // valid
+        Vertiport::try_from(object.clone()).unwrap();
+
+        // invalid data
+        object.data = None;
+        assert_eq!(
+            Vertiport::try_from(object.clone()).unwrap_err(),
+            VertiportError::Data
+        );
+
+        // invalid location
+        let tmp = vertiport::Data {
+            geo_location: None,
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            Vertiport::try_from(object.clone()).unwrap_err(),
+            VertiportError::Location
+        );
+
+        // invalid exterior
+        let tmp = vertiport::Data {
+            geo_location: Some(GeoPolygon {
+                exterior: None,
+                interiors: vec![],
+            }),
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            Vertiport::try_from(object.clone()).unwrap_err(),
+            VertiportError::Exterior
+        );
+    }
+
+    #[test]
+    fn test_try_from_parcel_scan_object() {
+        let data = parcel_scan::mock::get_data_obj();
+        let mut object = parcel_scan::Object {
+            id: "123".to_string(),
+            data: Some(data.clone()),
+        };
+
+        // valid
+        CargoScan::try_from(object.clone()).unwrap();
+
+        // invalid data
+        object.data = None;
+        assert_eq!(
+            CargoScan::try_from(object.clone()).unwrap_err(),
+            ScanError::Data
+        );
+
+        // invalid location
+        let tmp = parcel_scan::Data {
+            geo_location: None,
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            CargoScan::try_from(object.clone()).unwrap_err(),
+            ScanError::Location
+        );
+
+        // invalid created_at
+        let tmp = parcel_scan::Data {
+            created_at: None,
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            CargoScan::try_from(object.clone()).unwrap_err(),
+            ScanError::CreatedAt
+        );
+    }
+
+    #[test]
+    fn test_try_from_flight_plan_object() {
+        let data = flight_plan::mock::get_data_obj();
+        let mut object = flight_plan::Object {
+            id: "123".to_string(),
+            data: Some(data.clone()),
+        };
+
+        // valid
+        Occupation::try_from(object.clone()).unwrap();
+
+        // invalid data
+        object.data = None;
+        assert_eq!(
+            Occupation::try_from(object.clone()).unwrap_err(),
+            OccupationError::Data
+        );
+
+        // invalid target_timeslot_start
+        let tmp = flight_plan::Data {
+            target_timeslot_start: None,
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            Occupation::try_from(object.clone()).unwrap_err(),
+            OccupationError::TargetTimeslotStart
+        );
+
+        // invalid target_timeslot_end
+        let tmp = flight_plan::Data {
+            target_timeslot_end: None,
+            ..data.clone()
+        };
+        object.data = Some(tmp);
+        assert_eq!(
+            Occupation::try_from(object.clone()).unwrap_err(),
+            OccupationError::TargetTimeslotEnd
+        );
+    }
+
+    #[test]
+    fn test_query_occupations() {
+        // invalid vertiport ID
+        let request = QueryScheduleRequest {
+            vertiport_id: "invalid".to_string(),
+            arrival_window: Some(TimeWindow {
+                timestamp_min: Utc::now(),
+                timestamp_max: Utc::now(),
+            }),
+            limit: MAX_LANDINGS_TO_RETURN,
+        };
+
+        let response = occupations_request_validation(request).unwrap_err();
+        assert_eq!(response, QueryError::VertiportId);
+
+        // invalid limit
+        let request = QueryScheduleRequest {
+            vertiport_id: "123".to_string(),
+            arrival_window: Some(TimeWindow {
+                timestamp_min: Utc::now(),
+                timestamp_max: Utc::now(),
+            }),
+            limit: MAX_LANDINGS_TO_RETURN + 1,
+        };
+
+        let response = occupations_request_validation(request).unwrap_err();
+        assert_eq!(response, QueryError::Limit);
+
+        // invalid arrival window
+        let request = QueryScheduleRequest {
+            vertiport_id: Uuid::new_v4().to_string(),
+            arrival_window: None,
+            limit: MAX_LANDINGS_TO_RETURN,
+        };
+
+        let response = occupations_request_validation(request).unwrap_err();
+        assert_eq!(response, QueryError::ArrivalWindow);
+
+        // valid
+        let expected_time_window = TimeWindow {
+            timestamp_min: Utc::now(),
+            timestamp_max: Utc::now(),
+        };
+
+        let request = QueryScheduleRequest {
+            vertiport_id: Uuid::new_v4().to_string(),
+            arrival_window: Some(expected_time_window),
+            limit: MAX_LANDINGS_TO_RETURN,
+        };
+
+        let result = occupations_request_validation(request.clone()).unwrap();
+        assert_eq!(
+            result.arrival_window.timestamp_max,
+            expected_time_window.timestamp_max
+        );
+        assert_eq!(
+            result.arrival_window.timestamp_min,
+            expected_time_window.timestamp_min
+        );
+        assert_eq!(
+            result.vertiport_id,
+            Uuid::parse_str(&request.vertiport_id).unwrap()
+        );
+        assert_eq!(result.limit as u32, request.limit);
+    }
+
+    #[tokio::test]
+    async fn test_query_scans() {
+        let config = crate::config::Config::default();
+        let grpc_clients = GrpcClients::default(config);
+
+        // invalid parcel ID
+        let result = query_scans(Extension(grpc_clients.clone()), Path("invalid".to_string()))
+            .await
+            .unwrap_err();
+        assert_eq!(result, StatusCode::BAD_REQUEST);
+
+        // valid
+        let parcel_id = Uuid::new_v4().to_string();
+        let _ = query_scans(Extension(grpc_clients.clone()), Path(parcel_id.clone()))
+            .await
+            .unwrap();
+    }
+
+    #[test]
+    fn test_query_error_display() {
+        assert_eq!(
+            format!("{}", QueryError::VertiportId),
+            "Invalid vertiport ID"
+        );
+        assert_eq!(
+            format!("{}", QueryError::ArrivalWindow),
+            "Arrival window not specified"
+        );
+        assert_eq!(
+            format!("{}", QueryError::Limit),
+            format!("Specified limit beyond max of {MAX_LANDINGS_TO_RETURN}")
+        );
+    }
 }
