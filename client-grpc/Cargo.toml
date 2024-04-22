@@ -1,6 +1,6 @@
 [package]
-description = "Arrow cargo service gRPC client"
-keywords    = ["vtol", "client", "grpc", "cargo"] # max 5
+description = "Aetheric cargo service gRPC client"
+keywords    = ["vtol", "client", "grpc", "cargo"]  # max 5
 name        = "svc-cargo-client-grpc"
 version     = "0.10.1-develop.8"
 

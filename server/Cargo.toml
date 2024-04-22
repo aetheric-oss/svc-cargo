@@ -1,6 +1,6 @@
 [package]
-description = "Arrow cargo service gRPC and REST servers"
-keywords    = ["vtol", "server", "grpc", "rest", "cargo"] # max 5
+description = "Aetheric cargo service gRPC and REST servers"
+keywords    = ["vtol", "server", "grpc", "rest", "cargo"]    # max 5
 name        = "svc-cargo"
 version     = "0.10.1-develop.8"
 
@@ -33,7 +33,6 @@ stub_client = ["stub_backends"]
 anyhow         = "1.0"
 axum           = "0.6"
 cargo-husky    = "1"
-chrono         = { version = "0.4", features = ["serde"] }
 clap           = { version = "4.4", features = ["derive"] }
 config         = "0.13"
 deadpool-redis = { version = "0.13", features = ["serde"] }
@@ -56,7 +55,6 @@ tonic          = "0.10"
 tonic-health   = "0.10"
 tower          = { version = "0.4", features = ["limit"] }
 tower-http     = { version = "0.4", features = ["cors", "trace"] }
-uuid           = { version = "1.5", features = ["v4"] }
 
 [dependencies.svc-scheduler-client-grpc]
 git = "https://github.com/aetheric-oss/svc-scheduler.git"
@@ -81,8 +79,9 @@ git = "https://github.com/aetheric-oss/svc-storage"
 tag = "latest-develop"
 
 [dependencies.lib-common]
-git = "https://github.com/aetheric-oss/lib-common"
-tag = "latest-develop"
+features = ["grpc"]
+git      = "https://github.com/aetheric-oss/lib-common"
+tag      = "latest-develop"
 
 [dependencies.svc-contact-client-grpc]
 git = "https://github.com/aetheric-oss/svc-contact"
