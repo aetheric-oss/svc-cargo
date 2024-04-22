@@ -40,24 +40,19 @@ pub async fn rest_server(
 ) -> Result<(), ()> {
     rest_info!("(rest_server) entry.");
     let rest_port = config.docker_port_rest;
-    let full_rest_addr: SocketAddr = match format!("[::]:{}", rest_port).parse() {
-        Ok(addr) => addr,
-        Err(e) => {
-            rest_error!("(rest_server) invalid address: {:?}, exiting.", e);
-            return Err(());
-        }
-    };
+    let full_rest_addr: SocketAddr = format!("[::]:{}", rest_port).parse().map_err(|e| {
+        rest_error!("(rest_server) invalid address: {:?}, exiting.", e);
+    })?;
 
-    let cors_allowed_origin = match config.rest_cors_allowed_origin.parse::<HeaderValue>() {
-        Ok(url) => url,
-        Err(e) => {
+    let cors_allowed_origin = config
+        .rest_cors_allowed_origin
+        .parse::<HeaderValue>()
+        .map_err(|e| {
             rest_error!(
                 "(rest_server) invalid cors_allowed_origin address: {:?}, exiting.",
                 e
             );
-            return Err(());
-        }
-    };
+        })?;
 
     // Rate limiting
     let rate_limit = config.rest_request_limit_per_second as u64;

@@ -1,11 +1,14 @@
 //! gRPC client helpers implementation
 use tokio::sync::OnceCell;
 
-use lib_common::grpc::Client;
 use svc_contact_client_grpc::prelude::ContactClient;
 use svc_pricing_client_grpc::prelude::PricingClient;
 use svc_scheduler_client_grpc::prelude::SchedulerClient;
 use svc_storage_client_grpc::prelude::Clients;
+
+use svc_contact_client_grpc::prelude::Client as _;
+// use svc_pricing_client_grpc::prelude::Client as _;
+// use svc_scheduler_client_grpc::prelude::Client as _;
 
 pub(crate) static CLIENTS: OnceCell<GrpcClients> = OnceCell::const_new();
 
@@ -16,6 +19,7 @@ pub(crate) static CLIENTS: OnceCell<GrpcClients> = OnceCell::const_new();
 pub async fn get_clients() -> &'static GrpcClients {
     CLIENTS
         .get_or_init(|| async move {
+            // TODO(R5): don't default
             let config = crate::Config::try_from_env().unwrap_or_default();
             GrpcClients::default(config)
         })
@@ -63,13 +67,12 @@ impl GrpcClients {
 
 #[cfg(test)]
 mod tests {
-    use lib_common::grpc::Client as CommonClient;
-
     use super::*;
+    use lib_common::logger::get_log_handle;
 
     #[tokio::test]
     async fn test_grpc_clients_default() {
-        crate::get_log_handle().await;
+        get_log_handle().await;
         ut_info!("(test_grpc_clients_default) Start.");
 
         let config = crate::Config::default();

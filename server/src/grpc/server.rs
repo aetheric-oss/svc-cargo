@@ -47,6 +47,9 @@ impl RpcService for ServerImpl {
 ///     Ok(())
 /// }
 /// ```
+#[cfg(not(tarpaulin_include))]
+// no_coverage: Needs running backends to work.
+// Will be tested in integration tests.
 pub async fn grpc_server(config: Config, shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>) {
     grpc_debug!("(grpc_server) entry.");
 
@@ -71,6 +74,7 @@ pub async fn grpc_server(config: Config, shutdown_rx: Option<tokio::sync::onesho
         "(grpc_server) Starting gRPC services on: {}.",
         full_grpc_addr
     );
+
     match Server::builder()
         .add_service(health_service)
         .add_service(RpcServiceServer::new(imp))
@@ -101,10 +105,11 @@ impl RpcService for ServerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lib_common::logger::get_log_handle;
 
     #[tokio::test]
     async fn test_grpc_server_is_ready() {
-        crate::get_log_handle().await;
+        get_log_handle().await;
         ut_info!("(test_grpc_server_is_ready) Start.");
 
         let imp = ServerImpl::default();

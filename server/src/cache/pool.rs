@@ -1,55 +1,58 @@
 //! Redis connection pool implementation
 use super::Itinerary;
-use deadpool_redis::{
-    redis::{AsyncCommands, FromRedisValue, Value},
-    Pool, Runtime,
-};
+use deadpool_redis::redis::{FromRedisValue, Value};
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 use tonic::async_trait;
-use uuid::Uuid;
 
-/// A global static Redis pool.
-static REDIS_POOL: OnceCell<Arc<Mutex<CargoPool>>> = OnceCell::const_new();
+#[cfg(not(test))]
+use deadpool_redis::{redis::AsyncCommands, Pool, Runtime};
+
+#[cfg(test)]
+use crate::test_util::test_pool::Pool;
 
 /// How long to keep a task in memory after it's been processed
 const ITINERARY_KEEPALIVE_DURATION_SECONDS: usize = 120;
 
-/// Number of UUID retries on collision
-const UUID_COLLISION_RETRIES: u8 = 3;
+/// A global static Redis pool.
+static REDIS_POOL: OnceCell<Arc<Mutex<CargoPool>>> = OnceCell::const_new();
 
 /// Returns a Redis Pool.
 /// Uses host and port configurations using a Config object generated from
 /// environment variables.
 /// Initializes the pool if it hasn't been initialized yet.
-pub async fn get_pool() -> Option<CargoPool> {
-    if !REDIS_POOL.initialized() {
-        let config = crate::Config::try_from_env().unwrap_or_default();
-        let Some(pool) = CargoPool::new(config.clone()) else {
-            cache_error!("(get_pool) could not create Redis pool.");
-            panic!("(get_pool) could not create Redis pool.");
-        };
+#[cfg(not(tarpaulin_include))]
+// no_coverage: can't fail
+pub async fn get_pool() -> Result<Arc<Mutex<CargoPool>>, CacheError> {
+    REDIS_POOL
+        .get_or_try_init(|| async {
+            let config = crate::Config::try_from_env().map_err(|_| {
+                cache_error!("(get_pool) could not build configuration for cache.");
+                CacheError::CouldNotConfigure
+            })?;
 
-        let value = Arc::new(Mutex::new(pool));
-        if let Err(e) = REDIS_POOL.set(value) {
-            cache_error!("(get_pool) could not set Redis pool: {e}");
-            panic!("(get_pool) could not set Redis pool: {e}");
-        };
-    }
+            let pool = CargoPool::new(config)?;
 
-    let Some(arc) = REDIS_POOL.get() else {
-        cache_error!("(get_pool) could not get Redis pool.");
-        return None;
-    };
-
-    let pool = arc.lock().await;
-    Some((*pool).clone())
+            Ok(Arc::new(Mutex::new(pool)))
+        })
+        .await
+        .map_err(|_: CacheError| {
+            cache_error!("(get_pool) could not get Redis pool.");
+            CacheError::CouldNotConnect
+        })
+        .cloned()
 }
 
 /// Represents errors that can occur during cache operations.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CacheError {
+    /// Could not create pool
+    CouldNotCreatePool,
+
+    /// Pool was not available
+    PoolUnavailable,
+
     /// Could not build configuration for cache.
     CouldNotConfigure,
 
@@ -61,15 +64,29 @@ pub enum CacheError {
 
     /// The operation on the Redis cache failed.
     OperationFailed,
+
+    /// Invalid Value Retrieved
+    InvalidValue,
+
+    /// Unexpected Response
+    Unexpected,
+
+    /// KeyCollision
+    KeyCollision,
 }
 
 impl Display for CacheError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         match self {
+            CacheError::PoolUnavailable => write!(f, "Pool is unavailable."),
+            CacheError::CouldNotCreatePool => write!(f, "Could not create pool."),
             CacheError::CouldNotConfigure => write!(f, "Could not configure cache."),
             CacheError::CouldNotConnect => write!(f, "Could not connect to cache."),
             CacheError::OperationFailed => write!(f, "Cache operation failed."),
             CacheError::NotFound => write!(f, "Key was not found."),
+            CacheError::InvalidValue => write!(f, "Invalid value retrieved."),
+            CacheError::Unexpected => write!(f, "Unexpected response."),
+            CacheError::KeyCollision => write!(f, "Key collision."),
         }
     }
 }
@@ -87,35 +104,43 @@ pub struct CargoPool {
 
 impl Debug for CargoPool {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("CargoPool").finish()
+        f.debug_struct("CargoPool")
+            // .field("pool", &self.pool) // doesn't implement Debug
+            .finish()
     }
 }
 
 impl CargoPool {
     /// Create a new CargoPool
-    pub fn new(config: crate::config::Config) -> Option<CargoPool> {
+    #[cfg(test)]
+    pub fn new(_config: crate::config::Config) -> Result<CargoPool, CacheError> {
+        return Ok(CargoPool {
+            pool: Pool::default(),
+        });
+    }
+
+    #[cfg(not(test))]
+    /// Create a new CargoPool
+    pub fn new(config: crate::config::Config) -> Result<CargoPool, CacheError> {
         // the .env file must have REDIS__URL="redis://\<host\>:\<port\>"
         let cfg: deadpool_redis::Config = config.redis;
-        let Some(details) = cfg.url.clone() else {
+        let details = cfg.url.clone().ok_or_else(|| {
             cache_error!("(CargoPool new) no connection address found.");
-            return None;
-        };
+            CacheError::CouldNotConfigure
+        })?;
 
         cache_info!(
             "(CargoPool new) creating pool with key folder 'cargo' at {:?}...",
             details
         );
 
-        match cfg.create_pool(Some(Runtime::Tokio1)) {
-            Ok(pool) => {
-                cache_info!("(CargoPool new) pool created.");
-                Some(CargoPool { pool })
-            }
-            Err(e) => {
-                cache_error!("(CargoPool new) could not create pool: {}", e);
-                None
-            }
-        }
+        let pool = cfg.create_pool(Some(Runtime::Tokio1)).map_err(|e| {
+            cache_error!("(CargoPool new) could not create pool: {}", e);
+            CacheError::CouldNotCreatePool
+        })?;
+
+        cache_info!("(CargoPool new) pool created.");
+        Ok(CargoPool { pool })
     }
 }
 
@@ -132,74 +157,75 @@ pub trait ItineraryPool {
     fn pool(&self) -> &Pool;
 
     /// Creates a new task and returns the task_id for it
-    async fn store_itinerary(&mut self, draft_itinerary: &Itinerary) -> Result<Uuid, CacheError>
+    #[cfg(not(tarpaulin_include))]
+    // no_coverage: need redis connection, run in integration tests
+    async fn store_itinerary(
+        &mut self,
+        itinerary_id: String,
+        draft_itinerary: &Itinerary,
+    ) -> Result<(), CacheError>
     where
         Self: Send + Sync + 'async_trait,
     {
-        let mut connection = match self.pool().get().await {
-            Ok(c) => c,
-            Err(e) => {
+        cache_debug!("(store_itinerary) entry.");
+        let mut connection = self.pool().get().await.map_err(|_| {
+            cache_error!("(ItineraryPool new_task) could not get connection from pool.");
+
+            CacheError::PoolUnavailable
+        })?;
+
+        let key = format!("cargo:draft:{itinerary_id}");
+        let value = connection
+            .hset_nx(&key, "data", draft_itinerary)
+            .await
+            .map_err(|e| {
                 cache_error!(
-                    "(ItineraryPool update_task) could not get connection from pool: {}",
+                    "(ItineraryPool new_task) unexpected redis response to hsetnx command: {:?}",
                     e
                 );
+                CacheError::OperationFailed
+            })?;
 
-                return Err(CacheError::OperationFailed);
+        match value {
+            Value::Int(1) => {
+                cache_debug!("(ItineraryPool new_task) successfully added itinerary with UUID {itinerary_id}.");
+            }
+            Value::Int(0) => {
+                cache_debug!("(ItineraryPool new_task) key collision: {itinerary_id}");
+                return Err(CacheError::KeyCollision);
+            }
+            value => {
+                cache_error!(
+                    "(ItineraryPool new_task) unexpected redis response to hsetnx command: {:?}",
+                    value
+                );
+
+                return Err(CacheError::Unexpected);
             }
         };
 
-        let mut attempt = 0;
-        let mut itinerary_id = Uuid::new_v4();
-        while attempt < UUID_COLLISION_RETRIES {
-            let key = format!("cargo:draft:{itinerary_id}");
-            match connection.hset_nx(&key, "data", draft_itinerary).await {
-                Ok(Value::Int(1)) => {
-                    cache_debug!("(ItineraryPool new_task) successfully added itinerary with UUID {itinerary_id}.");
-                }
-                Ok(Value::Int(0)) => {
-                    cache_debug!("(ItineraryPool new_task) key collision (attempt {attempt}): {itinerary_id}");
-                    attempt += 1;
-                    itinerary_id = Uuid::new_v4();
-                    continue;
-                }
-                Ok(value) => {
-                    cache_error!(
-                        "(ItineraryPool new_task) unexpected redis response to hsetnx command: {:?}",
-                        value
-                    );
-                    return Err(CacheError::OperationFailed);
-                }
-                Err(e) => {
-                    cache_error!("(ItineraryPool new_task) unexpected redis response to hsetnx command: {:?}", e);
-                    return Err(CacheError::OperationFailed);
-                }
-            };
+        // Add expiration to itinerary
+        let result = connection
+            .expire(&key, ITINERARY_KEEPALIVE_DURATION_SECONDS)
+            .await
+            .map_err(|_| {
+                cache_error!(
+                    "(ItineraryPool new_task) could not set itinerary #{itinerary_id} expiry.",
+                );
 
-            // Add expiration to itinerary
-            match connection
-                .expire(key.clone(), ITINERARY_KEEPALIVE_DURATION_SECONDS)
-                .await
-            {
-                Ok(Value::Int(1)) => break,
-                Ok(value) => {
-                    cache_error!(
-                        "(ItineraryPool new_task) unexpected redis response to expire command: {:?}",
-                        value
-                    );
+                CacheError::OperationFailed
+            })?;
 
-                    return Err(CacheError::OperationFailed);
-                }
-                Err(e) => {
-                    cache_error!("(ItineraryPool new_task) could not set itinerary #{itinerary_id} expiry: {e}",);
+        match result {
+            Value::Int(1) => {}
+            value => {
+                cache_error!(
+                    "(ItineraryPool new_task) unexpected redis response to expire command: {:?}",
+                    value
+                );
 
-                    return Err(CacheError::OperationFailed);
-                }
+                return Err(CacheError::Unexpected);
             }
-        }
-
-        if attempt == UUID_COLLISION_RETRIES {
-            cache_error!("(ItineraryPool new_task) failed to generate UUID for draft itinerary, multiple key collisions.");
-            return Err(CacheError::OperationFailed);
         }
 
         cache_info!("(ItineraryPool new_task) created new draft itinerary #{itinerary_id}.",);
@@ -208,52 +234,183 @@ pub trait ItineraryPool {
             draft_itinerary
         );
 
-        Ok(itinerary_id)
+        Ok(())
     }
 
     /// Gets task information
+    #[cfg(not(tarpaulin_include))]
+    // no_coverage: need redis connection, run in integration tests
     async fn get_itinerary(&mut self, itinerary_id: String) -> Result<Itinerary, CacheError>
     where
         Self: Send + Sync + 'async_trait,
     {
         let key = format!("cargo:draft:{itinerary_id}");
-        let mut connection = match self.pool().get().await {
-            Ok(c) => c,
-            Err(e) => {
-                cache_error!(
-                    "(ItineraryPool update_task) could not get connection from pool: {}",
-                    e
-                );
-                return Err(CacheError::OperationFailed);
+        let value = self
+            .pool()
+            .get()
+            .await
+            .map_err(|_| {
+                cache_error!("(ItineraryPool get_task_data) could not get connection from pool.");
+                CacheError::PoolUnavailable
+            })?
+            .hget(&key, "data")
+            .await
+            .map_err(|_| {
+                cache_error!("(ItineraryPool get_task_data) could not get itinerary from Redis.");
+                CacheError::OperationFailed
+            })?;
+
+        if value == Value::Nil {
+            cache_error!("(ItineraryPool get_task_data) key expired or does not exist.");
+            return Err(CacheError::NotFound);
+        }
+
+        Itinerary::from_redis_value(&value).map_err(|e| {
+            cache_error!(
+                "(ItineraryPool get_task_data) could not deserialize itinerary {:#?}; {e}",
+                value
+            );
+
+            CacheError::InvalidValue
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rest::api::rest_types::CurrencyUnit;
+    use crate::rest::api::rest_types::Itinerary;
+    use lib_common::uuid::Uuid;
+
+    #[test]
+    fn test_cargo_pool_debug() {
+        let str = format!(
+            "{:?}",
+            CargoPool {
+                pool: Pool::default()
             }
+        );
+        assert_eq!(str, "CargoPool");
+    }
+
+    #[test]
+    fn test_cache_error_display() {
+        assert_eq!(
+            format!("{}", CacheError::PoolUnavailable),
+            "Pool is unavailable."
+        );
+        assert_eq!(
+            format!("{}", CacheError::CouldNotCreatePool),
+            "Could not create pool."
+        );
+        assert_eq!(
+            format!("{}", CacheError::CouldNotConfigure),
+            "Could not configure cache."
+        );
+        assert_eq!(
+            format!("{}", CacheError::CouldNotConnect),
+            "Could not connect to cache."
+        );
+        assert_eq!(
+            format!("{}", CacheError::OperationFailed),
+            "Cache operation failed."
+        );
+        assert_eq!(format!("{}", CacheError::NotFound), "Key was not found.");
+        assert_eq!(
+            format!("{}", CacheError::InvalidValue),
+            "Invalid value retrieved."
+        );
+        assert_eq!(
+            format!("{}", CacheError::Unexpected),
+            "Unexpected response."
+        );
+        assert_eq!(format!("{}", CacheError::KeyCollision), "Key collision.");
+    }
+
+    #[tokio::test]
+    async fn test_store_itinerary() {
+        let config = crate::config::Config::default();
+        let mut pool = super::CargoPool::new(config).unwrap();
+        let itinerary = Itinerary {
+            flight_plans: vec![],
+            invoice: vec![],
+            currency_unit: CurrencyUnit::Usd,
+            cargo_weight_g: 10,
+            user_id: Uuid::new_v4().to_string(),
+            acquisition_vertiport_id: Uuid::new_v4().to_string(),
+            delivery_vertiport_id: Uuid::new_v4().to_string(),
         };
 
-        let result = connection.hget(key, "data".to_string()).await;
+        // trigger get pool failure
+        pool.pool.fail = true;
+        let itinerary_id = Uuid::new_v4().to_string();
+        let result = pool
+            .store_itinerary(itinerary_id, &itinerary)
+            .await
+            .unwrap_err();
+        assert_eq!(result, CacheError::PoolUnavailable);
 
-        // Have to separate the Value type check from the main match case
-        match result {
-            Ok(Value::Nil) => {
-                cache_error!("(ItineraryPool get_task_data) key expired or does not exist.");
-                return Err(CacheError::NotFound);
-            }
-            Ok(value) => {
-                let Ok(itinerary) = Itinerary::from_redis_value(&value) else {
-                    cache_error!(
-                        "(ItineraryPool get_task_data) could not deserialize itinerary: {:?}",
-                        value
-                    );
-                    return Err(CacheError::OperationFailed);
-                };
+        // trigger Err(())
+        pool.pool.fail = false;
+        let itinerary_id = "".to_string();
+        let result = pool
+            .store_itinerary(itinerary_id, &itinerary)
+            .await
+            .unwrap_err();
+        assert_eq!(result, CacheError::OperationFailed);
 
-                Ok(itinerary)
-            }
-            Err(e) => {
-                cache_error!(
-                    "(ItineraryPool get_task_data) error getting itinerary: {:?}",
-                    e
-                );
-                return Err(CacheError::OperationFailed);
-            }
-        }
+        // trigger key collision
+        let itinerary_id = Uuid::new_v4().to_string();
+        pool.store_itinerary(itinerary_id.clone(), &itinerary)
+            .await
+            .unwrap();
+
+        let result = pool
+            .store_itinerary(itinerary_id, &itinerary)
+            .await
+            .unwrap_err();
+        assert_eq!(result, CacheError::KeyCollision);
+    }
+
+    #[tokio::test]
+    async fn test_get_itinerary() {
+        let config = crate::config::Config::default();
+        let mut pool = super::CargoPool::new(config).unwrap();
+
+        // trigger failing pool get
+        let itinerary_id = Uuid::new_v4().to_string();
+        pool.pool.fail = true;
+        let result = pool.get_itinerary(itinerary_id).await.unwrap_err();
+        assert_eq!(result, CacheError::PoolUnavailable);
+
+        // path to get Err(()) route
+        pool.pool.fail = false;
+        let itinerary_id = "".to_string();
+        let result = pool.get_itinerary(itinerary_id).await.unwrap_err();
+        assert_eq!(result, CacheError::OperationFailed);
+
+        // trigger not found
+        let itinerary_id = Uuid::new_v4().to_string();
+        let result = pool.get_itinerary(itinerary_id).await.unwrap_err();
+        assert_eq!(result, CacheError::NotFound);
+
+        // successful get
+        let itinerary = Itinerary {
+            flight_plans: vec![],
+            invoice: vec![],
+            currency_unit: CurrencyUnit::Usd,
+            cargo_weight_g: 10,
+            user_id: Uuid::new_v4().to_string(),
+            acquisition_vertiport_id: Uuid::new_v4().to_string(),
+            delivery_vertiport_id: Uuid::new_v4().to_string(),
+        };
+
+        let itinerary_id = Uuid::new_v4().to_string();
+        pool.store_itinerary(itinerary_id.clone(), &itinerary)
+            .await
+            .unwrap();
+
+        pool.get_itinerary(itinerary_id).await.unwrap();
     }
 }

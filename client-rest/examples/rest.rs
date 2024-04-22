@@ -1,11 +1,11 @@
 //! Example communication with this service
 
-use chrono::{Duration, Utc};
 use hyper::{Body, Client, Method, Request, Response};
 use hyper::{Error, StatusCode};
 use lib_common::grpc::get_endpoint_from_env;
+use lib_common::time::{Duration, Utc};
+use lib_common::uuid::Uuid;
 use svc_cargo_client_rest::types::*;
-use uuid::Uuid;
 
 fn evaluate(resp: Result<Response<Body>, Error>, expected_code: StatusCode) -> (bool, String) {
     let mut ok = true;

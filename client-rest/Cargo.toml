@@ -1,6 +1,6 @@
 [package]
-description = "Arrow cargo service REST client"
-keywords    = ["vtol", "client", "rest", "cargo"] # max 5
+description = "Aetheric cargo service REST client"
+keywords    = ["vtol", "client", "rest", "cargo"]  # max 5
 name        = "svc-cargo-client-rest"
 version     = "0.10.1-develop.8"
 
@@ -12,7 +12,6 @@ license-file.workspace = true
 repository.workspace   = true
 
 [dependencies]
-chrono     = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
 serde      = "1.0"
 serde_json = "1.0"
@@ -24,9 +23,8 @@ version  = "4.0"
 [dev-dependencies]
 hyper = { version = "0.14", features = ["full"] }
 tokio = { version = "1.33", features = ["full"] }
-uuid  = { version = "1.5", features = ["v4"] }
 
-[dev-dependencies.lib-common]
+[dependencies.lib-common]
 features = ["grpc"]
 git      = "https://github.com/aetheric-oss/lib-common.git"
 tag      = "latest-develop"
