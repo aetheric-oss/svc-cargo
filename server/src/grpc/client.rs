@@ -73,47 +73,47 @@ mod tests {
     #[tokio::test]
     async fn test_grpc_clients_default() {
         get_log_handle().await;
-        ut_info!("(test_grpc_clients_default) Start.");
+        ut_info!("Start.");
 
         let config = crate::Config::default();
         let clients = GrpcClients::default(config);
 
         let flight_plan = &clients.storage.flight_plan;
-        ut_debug!("(test_grpc_clients_default) flight_plan: {:?}", flight_plan);
+        ut_debug!("flight_plan: {:?}", flight_plan);
         assert_eq!(flight_plan.get_name(), "flight_plan");
 
         let vertipad = &clients.storage.vertipad;
-        ut_debug!("(test_grpc_clients_default) vertipad: {:?}", vertipad);
+        ut_debug!("vertipad: {:?}", vertipad);
         assert_eq!(vertipad.get_name(), "vertipad");
 
         let vertiport = &clients.storage.vertiport;
-        ut_debug!("(test_grpc_clients_default) vertiport: {:?}", vertiport);
+        ut_debug!("vertiport: {:?}", vertiport);
         assert_eq!(vertiport.get_name(), "vertiport");
 
         let parcel = &clients.storage.parcel;
-        ut_debug!("(test_grpc_clients_default) parcel: {:?}", parcel);
+        ut_debug!("parcel: {:?}", parcel);
         assert_eq!(parcel.get_name(), "parcel");
 
         let parcel_scan = &clients.storage.parcel_scan;
-        ut_debug!("(test_grpc_clients_default) parcel_scan: {:?}", parcel_scan);
+        ut_debug!("parcel_scan: {:?}", parcel_scan);
         assert_eq!(parcel_scan.get_name(), "parcel_scan");
 
         let vehicle = &clients.storage.vehicle;
-        ut_debug!("(test_grpc_clients_default) vehicle: {:?}", vehicle);
+        ut_debug!("vehicle: {:?}", vehicle);
         assert_eq!(vehicle.get_name(), "vehicle");
 
         let pricing = &clients.pricing;
-        ut_debug!("(test_grpc_clients_default) pricing: {:?}", pricing);
+        ut_debug!("pricing: {:?}", pricing);
         assert_eq!(pricing.get_name(), "pricing");
 
         let scheduler = &clients.scheduler;
-        ut_debug!("(test_grpc_clients_default) scheduler: {:?}", scheduler);
+        ut_debug!("scheduler: {:?}", scheduler);
         assert_eq!(scheduler.get_name(), "scheduler");
 
         let contact = &clients.contact;
-        ut_debug!("(test_grpc_clients_default) contact: {:?}", contact);
+        ut_debug!("contact: {:?}", contact);
         assert_eq!(contact.get_name(), "contact");
 
-        ut_info!("(test_grpc_clients_default) Success.");
+        ut_info!("Success.");
     }
 }

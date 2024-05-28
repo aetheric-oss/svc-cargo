@@ -24,17 +24,17 @@ impl TryFrom<parcel_scan::Object> for CargoScan {
 
     fn try_from(obj: parcel_scan::Object) -> Result<Self, Self::Error> {
         let data = obj.data.ok_or_else(|| {
-            rest_error!("(CargoScan) parcel scan data is None.");
+            rest_error!("parcel scan data is None.");
             ScanError::Data
         })?;
 
         let geo_location = data.geo_location.ok_or_else(|| {
-            rest_error!("(CargoScan) parcel scan location is None.");
+            rest_error!("parcel scan location is None.");
             ScanError::Location
         })?;
 
         let created_at = data.created_at.ok_or_else(|| {
-            rest_error!("(CargoScan) parcel scan created_at is None.");
+            rest_error!("parcel scan created_at is None.");
             ScanError::CreatedAt
         })?;
 
@@ -61,17 +61,17 @@ impl TryFrom<vertiport::Object> for Vertiport {
 
     fn try_from(obj: vertiport::Object) -> Result<Self, Self::Error> {
         let data = obj.data.ok_or_else(|| {
-            rest_error!("(Vertiport) vertiport data is None.");
+            rest_error!("vertiport data is None.");
             VertiportError::Data
         })?;
 
         let location = data.geo_location.ok_or_else(|| {
-            rest_error!("(Vertiport) vertiport location is None.");
+            rest_error!("vertiport location is None.");
             VertiportError::Location
         })?;
 
         let exterior = location.exterior.ok_or_else(|| {
-            rest_error!("(Vertiport) vertiport exterior is None.");
+            rest_error!("vertiport exterior is None.");
             VertiportError::Exterior
         })?;
 
@@ -100,17 +100,17 @@ impl TryFrom<flight_plan::Object> for Occupation {
 
     fn try_from(obj: flight_plan::Object) -> Result<Self, Self::Error> {
         let data = obj.data.ok_or_else(|| {
-            rest_error!("(Occupation) flight plan data is None.");
+            rest_error!("flight plan data is None.");
             OccupationError::Data
         })?;
 
         let target_timeslot_start = data.target_timeslot_start.ok_or_else(|| {
-            rest_error!("(Occupation) flight plan target_timeslot_start is None.");
+            rest_error!("flight plan target_timeslot_start is None.");
             OccupationError::TargetTimeslotStart
         })?;
 
         let target_timeslot_end = data.target_timeslot_end.ok_or_else(|| {
-            rest_error!("(Occupation) flight plan target_timeslot_end is None.");
+            rest_error!("flight plan target_timeslot_end is None.");
             OccupationError::TargetTimeslotEnd
         })?;
 
@@ -148,7 +148,7 @@ pub async fn query_vertiports(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryVertiportsRequest>,
 ) -> Result<Json<Vec<Vertiport>>, StatusCode> {
-    rest_debug!("(query_vertiports) entry.");
+    rest_debug!("entry.");
 
     //
     // 1 degree of latitude ~= 69 miles
@@ -179,7 +179,7 @@ pub async fn query_vertiports(
         .search(filter)
         .await
         .map_err(|e| {
-            rest_error!("(query_vertiports) svc-storage error. {:?}", e);
+            rest_error!("svc-storage error. {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
@@ -188,7 +188,7 @@ pub async fn query_vertiports(
         .filter_map(|vertiport| Vertiport::try_from(vertiport).ok())
         .collect::<Vec<Vertiport>>();
 
-    rest_info!("(query_vertiports) found {} vertiports.", vertiports.len());
+    rest_info!("found {} vertiports.", vertiports.len());
     Ok(Json(vertiports))
 }
 
@@ -252,10 +252,10 @@ pub async fn query_occupations(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryScheduleRequest>,
 ) -> Result<Json<QueryScheduleResponse>, StatusCode> {
-    rest_debug!("(query_occupations) entry.");
+    rest_debug!("entry.");
 
     let payload = occupations_request_validation(payload).map_err(|e| {
-        rest_error!("(query_occupations) {}", e);
+        rest_error!("{}", e);
         StatusCode::BAD_REQUEST
     })?;
 
@@ -283,7 +283,7 @@ pub async fn query_occupations(
         .search(filter)
         .await
         .map_err(|e| {
-            rest_error!("(query_occupations) svc-storage error. {:?}", e);
+            rest_error!("svc-storage error. {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
@@ -297,7 +297,7 @@ pub async fn query_occupations(
             match super::utils::get_vertipad_data(&occupation.vertipad_id, &grpc_clients).await {
                 Ok(vertipad) => Some(vertipad.name),
                 Err(e) => {
-                    rest_warn!("(Occupation) couldn't get vertipad display name: {:?}", e);
+                    rest_warn!("couldn't get vertipad display name: {:?}", e);
                     None
                 }
             };
@@ -306,7 +306,7 @@ pub async fn query_occupations(
             match super::utils::get_vehicle_data(&occupation.aircraft_id, &grpc_clients).await {
                 Ok(vehicle) => Some(vehicle.registration_number),
                 Err(e) => {
-                    rest_warn!("(Occupation) couldn't get vehicle nickname: {:?}", e);
+                    rest_warn!("couldn't get vehicle nickname: {:?}", e);
                     None
                 }
             };
@@ -336,9 +336,9 @@ pub async fn query_scans(
     Extension(grpc_clients): Extension<GrpcClients>,
     Path(parcel_id): Path<String>,
 ) -> Result<Json<QueryParcelResponse>, StatusCode> {
-    rest_info!("(query_scans) entry.");
+    rest_info!("entry.");
     to_uuid(&parcel_id).ok_or_else(|| {
-        rest_error!("(query_scans) parcel ID not in UUID format.");
+        rest_error!("parcel ID not in UUID format.");
         StatusCode::BAD_REQUEST
     })?;
 
@@ -359,7 +359,7 @@ pub async fn query_scans(
         .search(filter)
         .await
         .map_err(|e| {
-            rest_error!("(query_scans) svc-storage error {:?}", e);
+            rest_error!("svc-storage error {:?}", e);
             StatusCode::NOT_FOUND
         })?
         .into_inner()

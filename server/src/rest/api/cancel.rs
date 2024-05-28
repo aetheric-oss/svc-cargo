@@ -24,15 +24,15 @@ pub async fn cancel_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCancelRequest>,
 ) -> Result<(), StatusCode> {
-    rest_debug!("(cancel_itinerary) entry.");
+    rest_debug!("entry.");
 
     to_uuid(&payload.id).ok_or_else(|| {
-        rest_error!("(cancel_itinerary) itinerary ID not in UUID format.");
+        rest_error!("itinerary ID not in UUID format.");
         StatusCode::BAD_REQUEST
     })?;
 
     to_uuid(&payload.user_id).ok_or_else(|| {
-        rest_error!("(cancel_itinerary) user ID not in UUID format.");
+        rest_error!("user ID not in UUID format.");
         StatusCode::BAD_REQUEST
     })?;
 
@@ -48,11 +48,11 @@ pub async fn cancel_itinerary(
         })
         .await
         .map_err(|e| {
-            rest_error!("(cancel_itinerary) svc-scheduler request fail. {:?}", e);
+            rest_error!("svc-scheduler request fail. {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    rest_info!("(cancel_itinerary) cancellation added to scheduler queue.");
+    rest_info!("cancellation added to scheduler queue.");
 
     //
     // Get parcel from id
@@ -68,7 +68,7 @@ pub async fn cancel_itinerary(
         .search(filter)
         .await
         .map_err(|e| {
-            rest_error!("(cancel_itinerary) svc-parcel-storage error {:?}", e);
+            rest_error!("svc-parcel-storage error {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
@@ -81,7 +81,7 @@ pub async fn cancel_itinerary(
                 .delete(Id { id: parcel.id })
                 .await
                 .map_err(|e| {
-                    rest_error!("(cancel_itinerary) svc-storage error: {:?}", e);
+                    rest_error!("svc-storage error: {:?}", e);
                 })
         })
         .collect::<Vec<_>>();
@@ -94,7 +94,7 @@ pub async fn cancel_itinerary(
             .into_iter()
             .all(|r| r.is_ok())
         {
-            rest_error!("(cancel_itinerary) could not delete all parcels.");
+            rest_error!("could not delete all parcels.");
         }
     }
 

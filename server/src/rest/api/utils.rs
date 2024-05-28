@@ -20,13 +20,13 @@ pub async fn get_vertipad_data(
         })
         .await
         .map_err(|e| {
-            rest_error!("(get_vertipad_data) could not get ID {vertipad_id} from svc-storage: {e}");
+            rest_error!("could not get ID {vertipad_id} from svc-storage: {e}");
             StatusCode::NOT_FOUND
         })?
         .into_inner()
         .data
         .ok_or_else(|| {
-            rest_error!("(get_vertipad_data) svc-storage response missing data.");
+            rest_error!("svc-storage response missing data.");
             StatusCode::INTERNAL_SERVER_ERROR
         })
 }
@@ -44,13 +44,13 @@ pub async fn get_vehicle_data(
         })
         .await
         .map_err(|e| {
-            rest_error!("(get_vehicle_data) could not get ID {vehicle_id} from svc-storage: {e}");
+            rest_error!("could not get ID {vehicle_id} from svc-storage: {e}");
             StatusCode::NOT_FOUND
         })?
         .into_inner()
         .data
         .ok_or_else(|| {
-            rest_error!("(get_vehicle_data) svc-storage response missing data.");
+            rest_error!("svc-storage response missing data.");
             StatusCode::INTERNAL_SERVER_ERROR
         })
 }
@@ -70,13 +70,13 @@ pub async fn get_vertiport_id_from_vertipad_id(
         .await
         .map_err(|e| {
             let error_msg = "svc-storage error searching vertipad.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+            rest_error!("{} {:?}", &error_msg, e);
             StatusCode::NOT_FOUND
         })?
         .into_inner()
         .data
         .ok_or_else(|| {
-            rest_error!("(create_itinerary) vertipad data not found.");
+            rest_error!("vertipad data not found.");
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .vertiport_id;
@@ -89,10 +89,7 @@ pub async fn get_vertiport_id_from_vertipad_id(
 pub fn get_distance_meters(path: &[GeoPoint]) -> Option<f64> {
     // let mut distance: f64 = 0.0;
     if path.len() < 2 {
-        rest_error!(
-            "(get_distance_meters) path too short: {} segment(s).",
-            path.len()
-        );
+        rest_error!("path too short: {} segment(s).", path.len());
 
         return None;
     }
