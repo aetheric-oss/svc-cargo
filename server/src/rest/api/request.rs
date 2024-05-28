@@ -96,7 +96,7 @@ fn validate_payload(payload: &QueryItineraryRequest) -> Result<(), ValidationErr
     }
 
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: will never fail
+    // no_coverage: (R5) will never fail
     let delta = Duration::try_minutes(ADVANCE_NOTICE_MINUTES).ok_or_else(|| {
         rest_error!("could not get time delta.");
         ValidationError::BadTimeDelta
@@ -151,7 +151,7 @@ async fn scheduler_query(
     flight_query.earliest_departure_time = Some(payload.time_depart_window.timestamp_min.into());
 
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: will never fail
+    // no_coverage: (R5) will never fail
     let delta = Duration::try_hours(MAX_TIME_WINDOW_HOURS).ok_or_else(|| {
         rest_error!("could not get time delta.");
         StatusCode::INTERNAL_SERVER_ERROR
@@ -164,7 +164,7 @@ async fn scheduler_query(
     // GRPC Request
     //
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: need backends to test (integration)
+    // no_coverage: (R5) need backends to test (integration)
     let result = grpc_clients
         .scheduler
         .query_flight(flight_query)
@@ -207,7 +207,7 @@ fn unpack_itineraries(itineraries: Vec<SchedulerItinerary>) -> Vec<Itinerary> {
 
 /// Get the price for each itinerary
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 async fn update_pricing(
     payload: &QueryItineraryRequest,
     itinerary: &mut Itinerary,
@@ -349,7 +349,7 @@ async fn update_pricing(
     )
 )]
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 pub async fn request_flight(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryItineraryRequest>,

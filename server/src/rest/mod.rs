@@ -77,7 +77,7 @@ where
     T: OpenApi,
 {
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: no way to make JSON export fail
+    // no_coverage: (R5) no way to make JSON export fail
     let output = T::openapi().to_pretty_json().map_err(|e| {
         rest_error!("failed to export as JSON string: {e}");
         OpenApiError::Json

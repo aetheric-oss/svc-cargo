@@ -68,8 +68,6 @@ pub async fn scan_parcel(
         created_at: Some(Utc::now().into()),
     };
 
-    #[cfg(not(tarpaulin_include))]
-    // no_coverage: need backends to test (integration)
     grpc_clients
         .storage
         .parcel_scan
