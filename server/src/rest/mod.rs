@@ -79,12 +79,12 @@ where
     #[cfg(not(tarpaulin_include))]
     // no_coverage: no way to make JSON export fail
     let output = T::openapi().to_pretty_json().map_err(|e| {
-        rest_error!("(generate_openapi_spec) failed to export as JSON string: {e}");
+        rest_error!("failed to export as JSON string: {e}");
         OpenApiError::Json
     })?;
 
     std::fs::write(target, output).map_err(|e| {
-        rest_error!("(generate_openapi_spec) failed to write to file: {e}");
+        rest_error!("failed to write to file: {e}");
         OpenApiError::FileWrite
     })
 }

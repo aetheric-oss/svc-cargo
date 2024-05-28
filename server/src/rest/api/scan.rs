@@ -25,18 +25,18 @@ pub async fn scan_parcel(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<CargoScan>,
 ) -> Result<(), StatusCode> {
-    rest_debug!("(scan_parcel) entry.");
+    rest_debug!("entry.");
 
     // TODO(R5): Consider too old timestamps?
     //  Maybe an offline scanner could store scans until it has a connection
 
     to_uuid(&payload.parcel_id).ok_or_else(|| {
-        rest_error!("(scan_parcel) parcel ID not in UUID format.");
+        rest_error!("parcel ID not in UUID format.");
         StatusCode::BAD_REQUEST
     })?;
 
     to_uuid(&payload.scanner_id).ok_or_else(|| {
-        rest_error!("(scan_parcel) scanner ID not in UUID format.");
+        rest_error!("scanner ID not in UUID format.");
         StatusCode::BAD_REQUEST
     })?;
 
@@ -47,7 +47,7 @@ pub async fn scan_parcel(
     {
         let error_msg = "coordinates out of range.".to_string();
         rest_error!(
-            "(scan_parcel) {}: (lat: {}, lon: {})",
+            "{}: (lat: {}, lon: {})",
             &error_msg,
             payload.latitude,
             payload.longitude
@@ -76,21 +76,21 @@ pub async fn scan_parcel(
         .insert(data)
         .await
         .map_err(|e| {
-            rest_error!("(scan_parcel) svc-storage error: {:?}", e);
+            rest_error!("svc-storage error: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
         .validation_result
         .ok_or_else(|| {
-            rest_error!("(scan_parcel) svc-storage response missing validation result.");
+            rest_error!("svc-storage response missing validation result.");
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .success
         .then(|| {
-            rest_info!("(scan_parcel) svc-storage success.");
+            rest_info!("svc-storage success.");
         })
         .ok_or_else(|| {
-            rest_error!("(scan_parcel) svc-storage failure.");
+            rest_error!("svc-storage failure.");
             StatusCode::INTERNAL_SERVER_ERROR
         })
 }

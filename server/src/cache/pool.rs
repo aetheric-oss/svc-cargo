@@ -28,7 +28,7 @@ pub async fn get_pool() -> Result<Arc<Mutex<CargoPool>>, CacheError> {
     REDIS_POOL
         .get_or_try_init(|| async {
             let config = crate::Config::try_from_env().map_err(|_| {
-                cache_error!("(get_pool) could not build configuration for cache.");
+                cache_error!("could not build configuration for cache.");
                 CacheError::CouldNotConfigure
             })?;
 
@@ -38,7 +38,7 @@ pub async fn get_pool() -> Result<Arc<Mutex<CargoPool>>, CacheError> {
         })
         .await
         .map_err(|_: CacheError| {
-            cache_error!("(get_pool) could not get Redis pool.");
+            cache_error!("could not get Redis pool.");
             CacheError::CouldNotConnect
         })
         .cloned()
@@ -167,7 +167,7 @@ pub trait ItineraryPool {
     where
         Self: Send + Sync + 'async_trait,
     {
-        cache_debug!("(store_itinerary) entry.");
+        cache_debug!("entry.");
         let mut connection = self.pool().get().await.map_err(|_| {
             cache_error!("(ItineraryPool new_task) could not get connection from pool.");
 
