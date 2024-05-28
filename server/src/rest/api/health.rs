@@ -15,7 +15,7 @@ use svc_storage_client_grpc::prelude::{ReadyRequest, SimpleClient};
     )
 )]
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test failures (integration)
+// no_coverage: (R5) need backends to test failures (integration)
 pub async fn health_check(
     Extension(grpc_clients): Extension<GrpcClients>,
 ) -> Result<(), StatusCode> {
@@ -117,5 +117,29 @@ pub async fn health_check(
             rest_error!("unhealthy, 1+ dependencies down.");
             Err(StatusCode::SERVICE_UNAVAILABLE)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_health_check_success() {
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
+        // Mock the GrpcClients extension
+        let config = crate::Config::default();
+        let grpc_clients = GrpcClients::default(config); // Replace with your own mock implementation
+
+        // Call the health_check function
+        let result = health_check(Extension(grpc_clients)).await;
+
+        // Assert the expected result
+        println!("{:?}", result);
+        assert!(result.is_ok());
+
+        ut_info!("success");
     }
 }

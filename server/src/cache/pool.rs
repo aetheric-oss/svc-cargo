@@ -23,7 +23,7 @@ static REDIS_POOL: OnceCell<Arc<Mutex<CargoPool>>> = OnceCell::const_new();
 /// environment variables.
 /// Initializes the pool if it hasn't been initialized yet.
 #[cfg(not(tarpaulin_include))]
-// no_coverage: can't fail
+// no_coverage: (R5) can't fail
 pub async fn get_pool() -> Result<Arc<Mutex<CargoPool>>, CacheError> {
     REDIS_POOL
         .get_or_try_init(|| async {
@@ -158,7 +158,7 @@ pub trait ItineraryPool {
 
     /// Creates a new task and returns the task_id for it
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: need redis connection, run in integration tests
+    // no_coverage: (R5) need redis connection, run in integration tests
     async fn store_itinerary(
         &mut self,
         itinerary_id: String,
@@ -239,7 +239,7 @@ pub trait ItineraryPool {
 
     /// Gets task information
     #[cfg(not(tarpaulin_include))]
-    // no_coverage: need redis connection, run in integration tests
+    // no_coverage: (R5) need redis connection, run in integration tests
     async fn get_itinerary(&mut self, itinerary_id: String) -> Result<Itinerary, CacheError>
     where
         Self: Send + Sync + 'async_trait,
@@ -330,8 +330,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_store_itinerary() {
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
         let config = crate::config::Config::default();
-        let mut pool = super::CargoPool::new(config).unwrap();
+        let mut pool = CargoPool::new(config).unwrap();
         let itinerary = Itinerary {
             flight_plans: vec![],
             invoice: vec![],
@@ -371,12 +374,17 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(result, CacheError::KeyCollision);
+
+        ut_info!("success");
     }
 
     #[tokio::test]
     async fn test_get_itinerary() {
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
         let config = crate::config::Config::default();
-        let mut pool = super::CargoPool::new(config).unwrap();
+        let mut pool = CargoPool::new(config).unwrap();
 
         // trigger failing pool get
         let itinerary_id = Uuid::new_v4().to_string();
@@ -411,6 +419,8 @@ mod tests {
             .await
             .unwrap();
 
-        pool.get_itinerary(itinerary_id).await.unwrap();
+        assert!(pool.get_itinerary(itinerary_id).await.is_ok());
+
+        ut_info!("success");
     }
 }

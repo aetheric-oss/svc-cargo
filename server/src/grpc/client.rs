@@ -68,12 +68,11 @@ impl GrpcClients {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lib_common::logger::get_log_handle;
 
     #[tokio::test]
     async fn test_grpc_clients_default() {
-        get_log_handle().await;
-        ut_info!("Start.");
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
 
         let config = crate::Config::default();
         let clients = GrpcClients::default(config);
@@ -114,6 +113,19 @@ mod tests {
         ut_debug!("contact: {:?}", contact);
         assert_eq!(contact.get_name(), "contact");
 
-        ut_info!("Success.");
+        ut_info!("success");
+    }
+
+    #[tokio::test]
+    async fn test_get_clients() {
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
+        let clients = get_clients().await;
+
+        ut_debug!("parcel: {:?}", clients.storage.parcel);
+        assert_eq!(clients.storage.parcel.get_name(), "parcel");
+
+        ut_info!("success");
     }
 }

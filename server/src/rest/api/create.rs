@@ -63,7 +63,7 @@ async fn payment_confirm(
 
 /// Make a request to the scheduler to create an itinerary
 #[cfg(not(tarpaulin_include))]
-// no_coverage: (R5) need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 async fn scheduler_request(
     itinerary: &Itinerary,
     expiry: DateTime<Utc>,
@@ -102,7 +102,7 @@ async fn scheduler_request(
 
 /// Poll the scheduler for the task status for a set amount of time
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 async fn scheduler_poll(
     task_id: i64,
     expiry: DateTime<Utc>,
@@ -173,7 +173,7 @@ async fn scheduler_poll(
 
 /// Create the parcel/book the seat
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 async fn create_cargo(
     itinerary: &Itinerary,
     itinerary_id: &str,
@@ -362,8 +362,6 @@ async fn create_cargo(
         (status = 503, description = "Could not connect to other microservice dependencies")
     )
 )]
-#[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
 pub async fn create_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCreateRequest>,
