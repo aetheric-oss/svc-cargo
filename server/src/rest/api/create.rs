@@ -40,7 +40,7 @@ async fn payment_confirm(
     _currency_unit: CurrencyUnit,
     dry_run: bool,
 ) -> Result<(), StatusCode> {
-    rest_debug!("(payment_method_check) entry.");
+    rest_debug!("entry.");
     //
     // TODO(R5): Check if payment options are valid
     //
@@ -69,7 +69,7 @@ async fn scheduler_request(
     expiry: DateTime<Utc>,
     grpc_clients: &GrpcClients,
 ) -> Result<TaskResponse, StatusCode> {
-    rest_debug!("(scheduler_request) creating itinerary with scheduler.");
+    rest_debug!("creating itinerary with scheduler.");
 
     let flight_plans = itinerary
         .flight_plans
@@ -78,7 +78,7 @@ async fn scheduler_request(
         .map(|fp| fp.try_into())
         .collect::<Result<Vec<SchedulerFlightPlan>, _>>()
         .map_err(|e| {
-            rest_error!("(scheduler_request) invalid flight plan data: {e}");
+            rest_error!("invalid flight plan data: {e}");
             StatusCode::BAD_REQUEST
         })?;
 
@@ -94,7 +94,7 @@ async fn scheduler_request(
         .create_itinerary(data)
         .await
         .map_err(|e| {
-            rest_error!("(scheduler_request) svc-scheduler error {:?}", e);
+            rest_error!("svc-scheduler error {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })
         .map(|response| response.into_inner())
@@ -108,7 +108,7 @@ async fn scheduler_poll(
     expiry: DateTime<Utc>,
     grpc_clients: GrpcClients,
 ) -> Result<String, StatusCode> {
-    rest_debug!("(scheduler_poll) polling scheduler for task status.");
+    rest_debug!("polling scheduler for task status.");
 
     // Poll scheduler every few seconds
     let interval = tokio::time::Duration::from_secs(SCHEDULER_TASK_POLL_INTERVAL_SECONDS);
@@ -124,22 +124,19 @@ async fn scheduler_poll(
             .get_task_status(request)
             .await
             .map_err(|e| {
-                rest_error!("(create_itinerary) svc-scheduler error: {e}");
+                rest_error!("svc-scheduler error: {e}");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
             .into_inner();
 
         let task_id = task.task_id;
         let metadata = task.task_metadata.ok_or_else(|| {
-            rest_error!("(create_itinerary) no metadata for task #{task_id}");
+            rest_error!("no metadata for task #{task_id}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
         let status = FromPrimitive::from_i32(metadata.status).ok_or_else(|| {
-            rest_error!(
-                "(create_itinerary) unrecognized task status: {:?}",
-                metadata.status
-            );
+            rest_error!("unrecognized task status: {:?}", metadata.status);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -149,12 +146,12 @@ async fn scheduler_poll(
             }
             TaskStatus::Complete => return Ok(metadata.result.unwrap_or("".to_string())),
             TaskStatus::NotFound => {
-                rest_error!("(create_itinerary) svc-scheduler error.");
+                rest_error!("svc-scheduler error.");
                 return Err(StatusCode::INTERNAL_SERVER_ERROR);
             }
             TaskStatus::Rejected => {
                 rest_warn!(
-                    "(create_itinerary) task was rejected by the scheduler: {}",
+                    "task was rejected by the scheduler: {}",
                     metadata
                         .status_rationale
                         .unwrap_or(TaskStatusRationale::InvalidAction as i32)
@@ -164,7 +161,7 @@ async fn scheduler_poll(
         }
     }
 
-    rest_warn!("(create_itinerary) task timed out.");
+    rest_warn!("task timed out.");
 
     // Fire off task cancellation and don't wait
     tokio::spawn(async move {
@@ -184,7 +181,7 @@ async fn create_cargo(
     delivery_vertiport_id: &str,
     grpc_clients: &GrpcClients,
 ) -> Result<CargoInfo, StatusCode> {
-    rest_debug!("(create_cargo) creating parcel for itinerary_id {itinerary_id}: acquisition_vertiport_id: {acquisition_vertiport_id}, delivery_vertiport_id: {delivery_vertiport_id}.");
+    rest_debug!("creating parcel for itinerary_id {itinerary_id}: acquisition_vertiport_id: {acquisition_vertiport_id}, delivery_vertiport_id: {delivery_vertiport_id}.");
     //
     // TODO(R5): Doing all of these in a transaction would be
     //  nice, to rollback any changes if there are errors at
@@ -210,14 +207,14 @@ async fn create_cargo(
         .await
         .map_err(|e| {
             let error_msg = "svc-parcel-storage insert fail.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+            rest_error!("{} {:?}", &error_msg, e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
         .object
         .ok_or_else(|| {
             let error_msg = "svc-parcel-storage insert fail.".to_string();
-            rest_error!("(create_itinerary) {}", &error_msg);
+            rest_error!("{}", &error_msg);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -235,7 +232,7 @@ async fn create_cargo(
         .await
         .map_err(|e| {
             let error_msg = "error on request to svc-storage.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+            rest_error!("{} {:?}", &error_msg, e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner()
@@ -243,7 +240,7 @@ async fn create_cargo(
 
     if flight_plans.is_empty() {
         let error_str = "no flight plans found for itinerary_id.".to_string();
-        rest_error!("(create_itinerary) {}", &error_str);
+        rest_error!("{}", &error_str);
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
@@ -261,7 +258,7 @@ async fn create_cargo(
     for fp in flight_plans.into_iter() {
         let data = fp.data.ok_or_else(|| {
             let error_str = "flight plan data not found.".to_string();
-            rest_error!("(create_itinerary) {}", &error_str);
+            rest_error!("{}", &error_str);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -295,7 +292,7 @@ async fn create_cargo(
         .find(|fp| fp.1 == acquisition_vertiport_id)
         .ok_or_else(|| {
             let error_str = "acquisition flight plan not found.".to_string();
-            rest_error!("(create_itinerary) {}", &error_str);
+            rest_error!("{}", &error_str);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .0;
@@ -305,7 +302,7 @@ async fn create_cargo(
         .find(|fp| fp.2 == delivery_vertiport_id)
         .ok_or_else(|| {
             let error_str = "delivery flight plan not found.".to_string();
-            rest_error!("(create_itinerary) {}", &error_str);
+            rest_error!("{}", &error_str);
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .0;
@@ -342,7 +339,7 @@ async fn create_cargo(
             .await
             .map_err(|e| {
                 let error_msg = "svc-storage error inserting flight_plan_parcel link.".to_string();
-                rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+                rest_error!("{} {:?}", &error_msg, e);
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
     }
@@ -371,15 +368,15 @@ pub async fn create_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<ItineraryCreateRequest>,
 ) -> Result<(), StatusCode> {
-    rest_debug!("(create_itinerary) entry.");
+    rest_debug!("entry.");
 
     to_uuid(&payload.id).ok_or_else(|| {
-        rest_error!("(create_itinerary) invalid itinerary UUID.");
+        rest_error!("invalid itinerary UUID.");
         StatusCode::BAD_REQUEST
     })?;
 
     to_uuid(&payload.user_id).ok_or_else(|| {
-        rest_error!("(create_itinerary) invalid user UUID.");
+        rest_error!("invalid user UUID.");
         StatusCode::BAD_REQUEST
     })?;
 
@@ -388,7 +385,7 @@ pub async fn create_itinerary(
     let itinerary = crate::cache::pool::get_pool()
         .await
         .map_err(|e| {
-            rest_error!("(get_draft_itinerary) unable to get redis pool: {e}");
+            rest_error!("unable to get redis pool: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .lock()
@@ -396,7 +393,7 @@ pub async fn create_itinerary(
         .get_itinerary(payload.id.to_string())
         .await
         .map_err(|e| {
-            rest_error!("(get_draft_itinerary) unable to get itinerary from redis: {e}");
+            rest_error!("unable to get itinerary from redis: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -417,7 +414,7 @@ pub async fn create_itinerary(
     // This will "reserve" the weight/seats as well so we can
     //  create the parcel record in storage later without conflicts.
     let delta = Duration::try_seconds(SCHEDULER_TASK_TIMEOUT_SECONDS).ok_or_else(|| {
-        rest_error!("(create_itinerary) failed to create duration.");
+        rest_error!("failed to create duration.");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -430,7 +427,7 @@ pub async fn create_itinerary(
     // Poll the scheduler for the task status for a set amount of time
     let itinerary_id = scheduler_poll(task_id, expiry, grpc_clients.clone()).await?;
     to_uuid(&itinerary_id).ok_or_else(|| {
-        rest_error!("(create_itinerary) invalid itinerary UUID.");
+        rest_error!("invalid itinerary UUID.");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -463,7 +460,7 @@ pub async fn create_itinerary(
         .await
         .map_err(|e| {
             let error_msg = "svc-contact error.".to_string();
-            rest_error!("(create_itinerary) {} {:?}", &error_msg, e);
+            rest_error!("{} {:?}", &error_msg, e);
         });
 
     Ok(())

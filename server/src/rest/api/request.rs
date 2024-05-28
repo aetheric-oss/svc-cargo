@@ -75,20 +75,20 @@ fn validate_payload(payload: &QueryItineraryRequest) -> Result<(), ValidationErr
     // Reject extreme weights
     if payload.cargo_weight_g > MAX_CARGO_WEIGHT_G {
         let error_msg = format!("request cargo weight exceeds {MAX_CARGO_WEIGHT_G}.");
-        rest_error!("(request_flight) {}", &error_msg);
+        rest_error!("{}", &error_msg);
         return Err(ValidationError::Weight);
     }
 
     let time_window: &TimeWindow = &payload.time_depart_window;
     if time_window.timestamp_min >= time_window.timestamp_max {
-        rest_error!("(request_flight) invalid departure time window.");
+        rest_error!("invalid departure time window.");
         return Err(ValidationError::TimeWindowMax);
     }
 
     let current_time = Utc::now();
     if time_window.timestamp_max <= current_time {
         rest_error!(
-            "(request_flight) max depart time is in the past: {:?}",
+            "max depart time is in the past: {:?}",
             time_window.timestamp_max
         );
 
@@ -98,27 +98,27 @@ fn validate_payload(payload: &QueryItineraryRequest) -> Result<(), ValidationErr
     #[cfg(not(tarpaulin_include))]
     // no_coverage: will never fail
     let delta = Duration::try_minutes(ADVANCE_NOTICE_MINUTES).ok_or_else(|| {
-        rest_error!("(request_flight) could not get time delta.");
+        rest_error!("could not get time delta.");
         ValidationError::BadTimeDelta
     })?;
 
     if time_window.timestamp_min <= (current_time + delta) {
-        rest_error!("(request_flight) minimum departure window needs less than {ADVANCE_NOTICE_MINUTES} from now.");
+        rest_error!("minimum departure window needs less than {ADVANCE_NOTICE_MINUTES} from now.");
         return Err(ValidationError::TimeWindowMin);
     }
 
     to_uuid(&payload.origin_vertiport_id).ok_or_else(|| {
-        rest_error!("(request_flight) origin port ID not UUID format.");
+        rest_error!("origin port ID not UUID format.");
         ValidationError::OriginVertiportId
     })?;
 
     to_uuid(&payload.target_vertiport_id).ok_or_else(|| {
-        rest_error!("(request_flight) target port ID not UUID format.");
+        rest_error!("target port ID not UUID format.");
         ValidationError::TargetVertiportId
     })?;
 
     to_uuid(&payload.user_id).ok_or_else(|| {
-        rest_error!("(request_flight) user ID not UUID format.");
+        rest_error!("user ID not UUID format.");
         ValidationError::UserId
     })?;
 
@@ -133,7 +133,7 @@ async fn scheduler_query(
     //
     // Validate Request
     validate_payload(payload).map_err(|e| {
-        rest_error!("(request_flight) invalid request: {:?}", e);
+        rest_error!("invalid request: {:?}", e);
         StatusCode::BAD_REQUEST
     })?;
 
@@ -153,7 +153,7 @@ async fn scheduler_query(
     #[cfg(not(tarpaulin_include))]
     // no_coverage: will never fail
     let delta = Duration::try_hours(MAX_TIME_WINDOW_HOURS).ok_or_else(|| {
-        rest_error!("(request_flight) could not get time delta.");
+        rest_error!("could not get time delta.");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -170,7 +170,7 @@ async fn scheduler_query(
         .query_flight(flight_query)
         .await
         .map_err(|e| {
-            rest_error!("(request_flight) svc-scheduler error {:?}", e);
+            rest_error!("svc-scheduler error {:?}", e);
 
             StatusCode::INTERNAL_SERVER_ERROR
         })?
@@ -192,7 +192,7 @@ fn unpack_itineraries(itineraries: Vec<SchedulerItinerary>) -> Vec<Itinerary> {
                 .map(|fp| fp.try_into())
                 .collect::<Result<Vec<FlightPlan>, _>>()
                 .map_err(|_| {
-                    rest_error!("(request_flight) invalid flight plans in itinerary, skipping.",);
+                    rest_error!("invalid flight plans in itinerary, skipping.",);
                 })
                 .map(|plans| Itinerary {
                     flight_plans: plans,
@@ -227,7 +227,7 @@ async fn update_pricing(
             }
 
             let Some(distance_meters) = super::utils::get_distance_meters(&flight_plan.path) else {
-                rest_error!("(request_flight) invalid flight plan path.");
+                rest_error!("invalid flight plan path.");
                 return None;
             };
 
@@ -241,17 +241,17 @@ async fn update_pricing(
 
     // At least one flight plan should have weight
     if requests.iter().all(|r| r.weight_kg == 0.0) {
-        rest_error!("(request_flight) no flight plans with weight.");
-        rest_debug!("(request_flight) query payload: {:?}", &payload);
-        rest_debug!("(request_flight) itinerary: {:?}", &itinerary);
+        rest_error!("no flight plans with weight.");
+        rest_debug!("query payload: {:?}", &payload);
+        rest_debug!("itinerary: {:?}", &itinerary);
 
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     if requests.len() != itinerary.flight_plans.len() {
-        rest_error!("(request_flight) invalid pricing request count.");
-        rest_debug!("(request_flight) query payload: {:?}", &payload);
-        rest_debug!("(request_flight) itinerary: {:?}", &itinerary);
+        rest_error!("invalid pricing request count.");
+        rest_debug!("query payload: {:?}", &payload);
+        rest_debug!("itinerary: {:?}", &itinerary);
 
         return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -262,7 +262,7 @@ async fn update_pricing(
         .get_pricing(pricing::PricingRequests { requests })
         .await
         .map_err(|e| {
-            rest_error!("(request_flight) svc-pricing error: {e}");
+            rest_error!("svc-pricing error: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?
         .into_inner();
@@ -354,7 +354,7 @@ pub async fn request_flight(
     Extension(mut grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryItineraryRequest>,
 ) -> Result<Json<Vec<DraftItinerary>>, StatusCode> {
-    rest_debug!("(request_flight) entry.");
+    rest_debug!("entry.");
     //
     // Query Flight with Scheduler
     let itineraries = scheduler_query(&payload, &mut grpc_clients).await?;
@@ -376,7 +376,7 @@ pub async fn request_flight(
     //
     // Write all itineraries to redis
     let arc = crate::cache::pool::get_pool().await.map_err(|e| {
-        rest_error!("(store_itinerary) Couldn't get the redis pool: {}", e);
+        rest_error!("Couldn't get the redis pool: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -389,11 +389,7 @@ pub async fn request_flight(
             .store_itinerary(itinerary_id.clone(), &itinerary)
             .await
         {
-            rest_warn!(
-                "(request_flight) error storing itinerary: {:?}; {}",
-                itinerary,
-                e
-            );
+            rest_warn!("error storing itinerary: {:?}; {}", itinerary, e);
 
             continue;
         }
@@ -404,10 +400,7 @@ pub async fn request_flight(
         });
     }
 
-    rest_debug!(
-        "(request_flight) exit with {} itineraries.",
-        draft_itineraries.len()
-    );
+    rest_debug!("exit with {} itineraries.", draft_itineraries.len());
 
     Ok(Json(draft_itineraries))
 }

@@ -38,20 +38,17 @@ pub async fn rest_server(
     config: Config,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
 ) -> Result<(), ()> {
-    rest_info!("(rest_server) entry.");
+    rest_info!("entry.");
     let rest_port = config.docker_port_rest;
     let full_rest_addr: SocketAddr = format!("[::]:{}", rest_port).parse().map_err(|e| {
-        rest_error!("(rest_server) invalid address: {:?}, exiting.", e);
+        rest_error!("invalid address: {:?}, exiting.", e);
     })?;
 
     let cors_allowed_origin = config
         .rest_cors_allowed_origin
         .parse::<HeaderValue>()
         .map_err(|e| {
-            rest_error!(
-                "(rest_server) invalid cors_allowed_origin address: {:?}, exiting.",
-                e
-            );
+            rest_error!("invalid cors_allowed_origin address: {:?}, exiting.", e);
         })?;
 
     // Rate limiting
@@ -60,7 +57,7 @@ pub async fn rest_server(
     let limit_middleware = ServiceBuilder::new()
         .layer(TraceLayer::new_for_http())
         .layer(HandleErrorLayer::new(|e: BoxError| async move {
-            rest_warn!("(server) too many requests: {}", e);
+            rest_warn!("too many requests: {}", e);
             (
                 StatusCode::TOO_MANY_REQUESTS,
                 "(server) too many requests.".to_string(),
@@ -118,11 +115,11 @@ pub async fn rest_server(
         .await
     {
         Ok(_) => {
-            rest_info!("(rest_server) hosted at: {}.", full_rest_addr);
+            rest_info!("hosted at: {}.", full_rest_addr);
             Ok(())
         }
         Err(e) => {
-            rest_error!("(rest_server) could not start server: {}", e);
+            rest_error!("could not start server: {}", e);
             Err(())
         }
     }

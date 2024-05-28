@@ -20,7 +20,7 @@ impl FromRedisValue for Itinerary {
         };
 
         let itinerary = serde_json::from_slice(data).map_err(|e| {
-            cache_warn!("(FromRedisValue) error deserializing task: {}", e);
+            cache_warn!("error deserializing task: {}", e);
             RedisError::from((ErrorKind::TypeError, "Invalid JSON"))
         })?;
 
@@ -34,7 +34,7 @@ impl ToRedisArgs for Itinerary {
         W: RedisWrite,
     {
         let Ok(data) = serde_json::to_string(self) else {
-            cache_warn!("(ToRedisArgs) error serializing task");
+            cache_warn!("error serializing task");
             return;
         };
 
