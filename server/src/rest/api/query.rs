@@ -143,7 +143,7 @@ impl TryFrom<flight_plan::Object> for Occupation {
     )
 )]
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5)  function test not yet created
 pub async fn query_vertiports(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryVertiportsRequest>,
@@ -247,7 +247,7 @@ fn occupations_request_validation(
     request_body = QueryScheduleRequest
 )]
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5) function test not yet created
 pub async fn query_occupations(
     Extension(grpc_clients): Extension<GrpcClients>,
     Json(payload): Json<QueryScheduleRequest>,
@@ -331,7 +331,7 @@ pub async fn query_occupations(
     )
 )]
 #[cfg(not(tarpaulin_include))]
-// no_coverage: need backends to test (integration)
+// no_coverage: (R5)  function test not yet created
 pub async fn query_scans(
     Extension(grpc_clients): Extension<GrpcClients>,
     Path(parcel_id): Path<String>,

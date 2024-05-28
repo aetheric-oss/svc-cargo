@@ -37,8 +37,6 @@ pub async fn cancel_itinerary(
     })?;
 
     // Make request, process response
-    #[cfg(not(tarpaulin_include))]
-    // no_coverage: need backends to test (integration)
     grpc_clients
         .scheduler
         .cancel_itinerary(svc_scheduler_client_grpc::client::CancelItineraryRequest {
@@ -60,8 +58,6 @@ pub async fn cancel_itinerary(
     let filter =
         AdvancedSearchFilter::search_equals("itinerary_id".to_string(), payload.id.clone());
 
-    #[cfg(not(tarpaulin_include))]
-    // no_coverage: need backends to test (integration)
     let futures = grpc_clients
         .storage
         .parcel
@@ -86,8 +82,6 @@ pub async fn cancel_itinerary(
         })
         .collect::<Vec<_>>();
 
-    #[cfg(not(tarpaulin_include))]
-    // no_coverage: need backends to test (integration)
     {
         if !futures::future::join_all(futures)
             .await

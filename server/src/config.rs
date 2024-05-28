@@ -115,12 +115,11 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::Config;
-    use lib_common::logger::get_log_handle;
 
     #[tokio::test]
     async fn test_config_from_default() {
-        get_log_handle().await;
-        ut_info!("Start.");
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
 
         let config = Config::default();
 
@@ -145,13 +144,13 @@ mod tests {
         assert!(config.redis.pool.is_none());
         assert!(config.redis.connection.is_none());
 
-        ut_info!("Success.");
+        ut_info!("success");
     }
 
     #[tokio::test]
     async fn test_config_from_env() {
-        get_log_handle().await;
-        ut_info!("Start.");
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
 
         std::env::set_var("DOCKER_PORT_GRPC", "6789");
         std::env::set_var("DOCKER_PORT_REST", "9876");
@@ -205,6 +204,6 @@ mod tests {
         );
         assert!(config.redis.pool.is_some());
 
-        ut_info!("Success.");
+        ut_info!("success");
     }
 }

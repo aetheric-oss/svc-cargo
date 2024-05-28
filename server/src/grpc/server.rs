@@ -47,8 +47,6 @@ impl RpcService for ServerImpl {
 ///     Ok(())
 /// }
 /// ```
-#[cfg(not(tarpaulin_include))]
-// no_coverage: Needs running backends to work.
 // Will be tested in integration tests.
 pub async fn grpc_server(config: Config, shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>) {
     grpc_debug!("entry.");
@@ -102,12 +100,33 @@ impl RpcService for ServerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lib_common::logger::get_log_handle;
+
+    #[tokio::test]
+    async fn test_grpc_server_start_and_shutdown() {
+        use tokio::time::{sleep, Duration};
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
+        let config = Config::default();
+
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        // Start the grpc server
+        tokio::spawn(grpc_server(config, Some(shutdown_rx)));
+
+        // Give the server time to get through the startup sequence (and thus code)
+        sleep(Duration::from_secs(1)).await;
+
+        // Shut down server
+        assert!(shutdown_tx.send(()).is_ok());
+
+        ut_info!("success");
+    }
 
     #[tokio::test]
     async fn test_grpc_server_is_ready() {
-        get_log_handle().await;
-        ut_info!("Start.");
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
 
         let imp = ServerImpl::default();
         let result = imp.is_ready(Request::new(ReadyRequest {})).await;
@@ -115,6 +134,6 @@ mod tests {
         let result: ReadyResponse = result.unwrap().into_inner();
         assert_eq!(result.ready, true);
 
-        ut_info!("Success.");
+        ut_info!("success");
     }
 }

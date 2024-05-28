@@ -1,7 +1,7 @@
 //! Rest server implementation
 
 use super::api;
-use crate::grpc::client::GrpcClients;
+use crate::grpc::client::get_clients;
 use crate::shutdown_signal;
 use crate::Config;
 use axum::{
@@ -31,9 +31,6 @@ use tower_http::trace::TraceLayer;
 ///     Ok(())
 /// }
 /// ```
-#[cfg(not(tarpaulin_include))]
-// no_coverage: Needs running backends to work.
-// Will be tested in integration tests.
 pub async fn rest_server(
     config: Config,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
@@ -74,7 +71,7 @@ pub async fn rest_server(
     // Extensions
     //
     // GRPC Clients
-    let grpc_clients = GrpcClients::default(config.clone());
+    let grpc_clients = get_clients().await;
 
     let app = Router::new()
         .route("/health", routing::get(api::health::health_check))
@@ -122,5 +119,32 @@ pub async fn rest_server(
             rest_error!("could not start server: {}", e);
             Err(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_server_start_and_shutdown() {
+        use tokio::time::{sleep, Duration};
+        lib_common::logger::get_log_handle().await;
+        ut_info!("start");
+
+        let config = Config::default();
+
+        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+        // Start the rest server
+        tokio::spawn(rest_server(config, Some(shutdown_rx)));
+
+        // Give the server time to get through the startup sequence (and thus code)
+        sleep(Duration::from_secs(1)).await;
+
+        // Shut down server
+        assert!(shutdown_tx.send(()).is_ok());
+
+        ut_info!("success");
     }
 }
