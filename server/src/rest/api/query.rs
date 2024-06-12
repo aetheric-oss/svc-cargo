@@ -375,6 +375,7 @@ pub async fn query_scans(
 mod tests {
     use super::*;
     use lib_common::time::Utc;
+    use lib_common::uuid::to_uuid;
     use svc_storage_client_grpc::prelude::GeoPolygon;
 
     #[test]
@@ -562,10 +563,7 @@ mod tests {
             result.arrival_window.timestamp_min,
             expected_time_window.timestamp_min
         );
-        assert_eq!(
-            result.vertiport_id,
-            Uuid::parse_str(&request.vertiport_id).unwrap()
-        );
+        assert_eq!(result.vertiport_id, to_uuid(&request.vertiport_id).unwrap());
         assert_eq!(result.limit as u32, request.limit);
     }
 
