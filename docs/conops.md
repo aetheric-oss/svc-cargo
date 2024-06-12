@@ -74,7 +74,7 @@ Document | Description
 --- | ---
 | [High-Level Concept of Operations (CONOPS)](https://github.com/aetheric-oss/se-services/blob/develop/docs/conops.md) | Overview of Aetheric microservices.                             |
 | [High-Level Interface Control Document (ICD)](https://github.com/aetheric-oss/se-services/blob/develop/docs/icd.md)  | Interfaces and frameworks common to all Aetheric microservices. |
-[Requirements - `svc-cargo`](https://nocodb.arrowair.com/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements and user stories for this microservice.
+[Requirements - `svc-cargo`](https://nocodb.aetheric.nl/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements and user stories for this microservice.
 [Software Design Document - `svc-cargo`](./sdd.md) | Defines the implementation of this interface.
 [Interface Control Document (ICD) - `svc-cargo`](./icd.md) | Defines the inputs and outputs of this microservice.
 
