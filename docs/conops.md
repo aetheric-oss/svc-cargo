@@ -8,10 +8,10 @@ This microservice allows external processes to make requests to the network thro
 
 ### Metadata
 
-Item | Value
---- | ---
-Maintainer(s) | @aetheric-oss/dev-realm
-Stuckee | A.M. Smith ([@ServiceDog](https://github.com/ServiceDog))
+| Attribute     | Description                                                                    |
+| ------------- |--------------------------------------------------------------------------------|
+| Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
+| Status        | Draft                                                                          |
 
 :exclamation: This document is intended for internal use.
 
