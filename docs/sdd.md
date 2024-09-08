@@ -12,10 +12,12 @@ Interactions include querying for available flights, creating flights, and cance
 
 This service will primarily communicate with a client-side user interface, such as a website or mobile application. It stands between clients and the core Arrow services network, denying ill-formed requests and limiting traffic.
 
-Attribute | Description
---- | ---
-Status | Development
-Stuckee | A.M. Smith ([@ServiceDog](https://github.com/ServiceDog))
+### Metadata
+
+| Attribute     | Description                                                                    |
+| ------------- |--------------------------------------------------------------------------------|
+| Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
+| Status        | Draft   
 
 ## :books: Related Documents
 
