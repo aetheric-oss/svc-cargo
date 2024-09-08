@@ -6,9 +6,12 @@
 
 This document defines the GRPC and REST interfaces unique to the `svc-cargo` microservice.
 
-Attribute | Description
---- | ---
-Status | Development
+### Metadata
+
+| Attribute     | Description                                                                    |
+| ------------- |--------------------------------------------------------------------------------|
+| Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
+| Status        | Draft                                                                          |
 
 ## :books: Related Documents
 
