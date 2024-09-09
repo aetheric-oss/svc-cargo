@@ -1,7 +1,7 @@
 use crate::grpc::client::GrpcClients;
 use geo::HaversineDistance;
 use hyper::StatusCode;
-use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
+use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPointZ;
 use svc_storage_client_grpc::prelude::*;
 use svc_storage_client_grpc::resources::vehicle::Data as VehicleData;
 use svc_storage_client_grpc::resources::vertipad::Data as VertipadData;
@@ -86,7 +86,7 @@ pub async fn get_vertiport_id_from_vertipad_id(
 
 /// Gets the total distance of a path in meters
 /// TODO(R5): Temporary function to convert path to distance, until svc-storage is updated with it
-pub fn get_distance_meters(path: &[GeoPoint]) -> Option<f64> {
+pub fn get_distance_meters(path: &[GeoPointZ]) -> Option<f64> {
     // let mut distance: f64 = 0.0;
     if path.len() < 2 {
         rest_error!("path too short: {} segment(s).", path.len());
@@ -98,12 +98,12 @@ pub fn get_distance_meters(path: &[GeoPoint]) -> Option<f64> {
         .windows(2)
         .map(|pair| {
             geo::point!(
-                x: pair[0].longitude,
-                y: pair[0].latitude
+                x: pair[0].x,
+                y: pair[0].y
             )
             .haversine_distance(&geo::point!(
-                x: pair[1].longitude,
-                y: pair[1].latitude
+                x: pair[1].x,
+                y: pair[1].y
             ))
         })
         .sum();
@@ -129,25 +129,25 @@ mod tests {
 
     #[test]
     fn test_get_distance_meters() {
-        let base = GeoPoint {
-            longitude: 5.167,
-            latitude: 52.64,
-            altitude: 0.0,
+        let base = GeoPointZ {
+            x: 5.167,
+            y: 52.64,
+            z: 0.0,
         };
 
         // path too short
         let path = vec![base];
         assert_eq!(get_distance_meters(&path), None);
 
-        let target = GeoPoint {
-            longitude: base.longitude,
-            latitude: base.latitude + 0.01,
-            altitude: base.altitude,
+        let target = GeoPointZ {
+            x: base.x,
+            y: base.y + 0.01,
+            z: base.z,
         };
 
         let path = vec![base, target];
 
-        let expected_distance_m = degrees_to_latitude((target.latitude - base.latitude).abs());
+        let expected_distance_m = degrees_to_latitude((target.y - base.y).abs());
         let distance_m = get_distance_meters(&path).unwrap();
 
         // difference less than 5m
@@ -157,14 +157,13 @@ mod tests {
         //
         // Longitude Difference
         //
-        let target = GeoPoint {
-            longitude: base.longitude + 0.01,
-            latitude: base.latitude,
-            altitude: base.altitude,
+        let target = GeoPointZ {
+            x: base.x + 0.01,
+            y: base.y,
+            z: base.z,
         };
 
-        let expected_distance_m =
-            degrees_to_longitude((target.longitude - base.longitude).abs(), base.latitude);
+        let expected_distance_m = degrees_to_longitude((target.x - base.x).abs(), base.y);
         let path = vec![base, target];
         let distance_m = get_distance_meters(&path).unwrap();
         let delta = (expected_distance_m - distance_m).abs();

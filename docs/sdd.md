@@ -17,7 +17,8 @@ This service will primarily communicate with a client-side user interface, such 
 | Attribute     | Description                                                                    |
 | ------------- |--------------------------------------------------------------------------------|
 | Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
-| Status        | Draft   
+| Status        | Draft     
+| Stuckee | A.M. Smith ([@amsmith-pro](https://github.com/amsmith-pro))
 
 ## :books: Related Documents
 

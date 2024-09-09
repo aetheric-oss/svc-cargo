@@ -105,3 +105,10 @@ Learn more about us: [Aetheric website](https://www.aetheric.nl)
 ## LICENSE Notice
 
 Please note that svc-cargo is under BUSL license until the Change Date, currently the earlier of two years from the release date. Exceptions to the license may be specified by Aetheric Governance via Additional Use Grants, which can, for example, allow svc-cargo to be deployed for certain production uses. Please reach out to Aetheric to request a vote for exceptions to the license, or to move up the Change Date.
+
+## :exclamation: Treatment of `Cargo.lock`
+If you are building a non-end product like a library, include `Cargo.lock` in `.gitignore`.
+
+If you are building an end product like a command line tool, check `Cargo.lock` to the git. 
+
+Read more about it [here](https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html);

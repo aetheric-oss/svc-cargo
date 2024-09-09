@@ -130,17 +130,6 @@ checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
 
 [[package]]
 name = "arrow-macros-core"
-version = "0.2.1-develop.4"
-source = "git+https://github.com/aetheric-oss/lib-common?tag=latest-develop#c325691ec5ba51fa340f873a8ccd5a5bed19b7e2"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.77",
-]
-
-[[package]]
-name = "arrow-macros-core"
 version = "2.0.0"
 source = "git+https://github.com/aetheric-oss/lib-common?tag=v2.0.0#4457c15d899697762dbaa46c142a78559df8144b"
 dependencies = [
@@ -152,20 +141,10 @@ dependencies = [
 
 [[package]]
 name = "arrow-macros-derive"
-version = "0.2.1-develop.4"
-source = "git+https://github.com/aetheric-oss/lib-common?tag=latest-develop#c325691ec5ba51fa340f873a8ccd5a5bed19b7e2"
-dependencies = [
- "arrow-macros-core 0.2.1-develop.4",
- "proc-macro-error",
- "proc-macro2",
-]
-
-[[package]]
-name = "arrow-macros-derive"
 version = "2.0.0"
 source = "git+https://github.com/aetheric-oss/lib-common?tag=v2.0.0#4457c15d899697762dbaa46c142a78559df8144b"
 dependencies = [
- "arrow-macros-core 2.0.0",
+ "arrow-macros-core",
  "proc-macro-error",
  "proc-macro2",
 ]
@@ -1207,10 +1186,10 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lib-common"
-version = "0.2.1-develop.4"
-source = "git+https://github.com/aetheric-oss/lib-common?tag=latest-develop#c325691ec5ba51fa340f873a8ccd5a5bed19b7e2"
+version = "2.0.0"
+source = "git+https://github.com/aetheric-oss/lib-common?tag=v2.0.0#4457c15d899697762dbaa46c142a78559df8144b"
 dependencies = [
- "arrow-macros-derive 0.2.1-develop.4",
+ "arrow-macros-derive",
  "cargo-husky",
  "chrono",
  "chrono-tz",
@@ -1224,26 +1203,6 @@ dependencies = [
  "tokio",
  "tonic",
  "tower",
- "trybuild",
- "uuid",
-]
-
-[[package]]
-name = "lib-common"
-version = "2.0.0"
-source = "git+https://github.com/aetheric-oss/lib-common?tag=v2.0.0#4457c15d899697762dbaa46c142a78559df8144b"
-dependencies = [
- "arrow-macros-derive 2.0.0",
- "cargo-husky",
- "chrono",
- "chrono-tz",
- "futures",
- "log",
- "log4rs",
- "prost",
- "prost-wkt-types",
- "tokio",
- "tonic",
  "trybuild",
  "uuid",
 ]
@@ -2501,7 +2460,7 @@ dependencies = [
  "futures",
  "geo",
  "hyper",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "log4rs",
  "logtest",
@@ -2532,7 +2491,7 @@ name = "svc-cargo-client-grpc"
 version = "0.10.1-develop.10"
 dependencies = [
  "cfg-if",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "logtest",
  "prost",
@@ -2548,7 +2507,7 @@ name = "svc-cargo-client-rest"
 version = "0.10.1-develop.10"
 dependencies = [
  "hyper",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "num-traits",
  "serde",
  "serde_json",
@@ -2559,11 +2518,11 @@ dependencies = [
 
 [[package]]
 name = "svc-contact-client-grpc"
-version = "0.0.2-develop.5"
-source = "git+https://github.com/aetheric-oss/svc-contact?tag=latest-develop#49b075acf86f86771cebfd619caff3075a610742"
+version = "0.1.0"
+source = "git+https://github.com/aetheric-oss/svc-contact?tag=v0.1.0#06bd5f55a126981542a194d3db6dc0ffb07c268f"
 dependencies = [
  "cfg-if",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "prost",
  "tonic",
@@ -2571,11 +2530,11 @@ dependencies = [
 
 [[package]]
 name = "svc-gis-client-grpc"
-version = "0.1.1-develop.13"
-source = "git+https://github.com/aetheric-oss/svc-gis.git?tag=latest-develop#53b10180299ea16acd788922a3da26a27e57af2e"
+version = "0.2.0"
+source = "git+https://github.com/aetheric-oss/svc-gis.git?tag=v0.2.0#fbded26bb4f7222a6a5c090e394380b72f560312"
 dependencies = [
  "cfg-if",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "num-derive",
  "num-traits",
@@ -2591,14 +2550,14 @@ dependencies = [
 
 [[package]]
 name = "svc-pricing"
-version = "0.5.2-develop.4"
-source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#705602fb1c18827c99f135f30bfdfd8c8eb1efcc"
+version = "0.6.0"
+source = "git+https://github.com/aetheric-oss/svc-pricing?tag=v0.6.0#cb729cb447023bc491618b7ccb65e26a511425bd"
 dependencies = [
  "anyhow",
  "cargo-husky",
  "config",
  "dotenv",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "log4rs",
  "openssl",
@@ -2618,11 +2577,11 @@ dependencies = [
 
 [[package]]
 name = "svc-pricing-client-grpc"
-version = "0.5.2-develop.4"
-source = "git+https://github.com/aetheric-oss/svc-pricing?tag=latest-develop#705602fb1c18827c99f135f30bfdfd8c8eb1efcc"
+version = "0.6.0"
+source = "git+https://github.com/aetheric-oss/svc-pricing?tag=v0.6.0#cb729cb447023bc491618b7ccb65e26a511425bd"
 dependencies = [
  "cfg-if",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "prost",
  "prost-types",
@@ -2632,8 +2591,8 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler"
-version = "0.4.1-develop.9"
-source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#c13c74fa37fcc2aa8340459588841af87316e00c"
+version = "0.5.0"
+source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=v0.5.0#37002c0b37662f0ceffb239ba4478e4913316322"
 dependencies = [
  "anyhow",
  "cargo-husky",
@@ -2646,7 +2605,7 @@ dependencies = [
  "geo",
  "iso8601-duration",
  "lazy_static",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "log4rs",
  "num-derive",
@@ -2674,11 +2633,11 @@ dependencies = [
 
 [[package]]
 name = "svc-scheduler-client-grpc"
-version = "0.4.1-develop.9"
-source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=latest-develop#c13c74fa37fcc2aa8340459588841af87316e00c"
+version = "0.5.0"
+source = "git+https://github.com/aetheric-oss/svc-scheduler.git?tag=v0.5.0#37002c0b37662f0ceffb239ba4478e4913316322"
 dependencies = [
  "cfg-if",
- "lib-common 0.2.1-develop.4",
+ "lib-common",
  "log",
  "num-derive",
  "num-traits",
@@ -2694,8 +2653,8 @@ dependencies = [
 
 [[package]]
 name = "svc-storage"
-version = "0.12.1-develop.0"
-source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#596eef587a5831af84862f898182a0125dcd5f22"
+version = "0.12.0"
+source = "git+https://github.com/aetheric-oss/svc-storage?tag=v0.12.0#257ca688d6ff6de4763c3188695ee7800c2d9e4d"
 dependencies = [
  "anyhow",
  "byteorder",
@@ -2710,7 +2669,7 @@ dependencies = [
  "futures",
  "hyper",
  "lazy_static",
- "lib-common 2.0.0",
+ "lib-common",
  "log",
  "log4rs",
  "native-tls",
@@ -2739,15 +2698,15 @@ dependencies = [
 
 [[package]]
 name = "svc-storage-client-grpc"
-version = "0.12.1-develop.0"
-source = "git+https://github.com/aetheric-oss/svc-storage?tag=latest-develop#596eef587a5831af84862f898182a0125dcd5f22"
+version = "0.12.0"
+source = "git+https://github.com/aetheric-oss/svc-storage?tag=v0.12.0#257ca688d6ff6de4763c3188695ee7800c2d9e4d"
 dependencies = [
  "anyhow",
  "cfg-if",
  "futures",
  "geo",
  "lazy_static",
- "lib-common 2.0.0",
+ "lib-common",
  "log",
  "num-derive",
  "num-traits",

@@ -27,11 +27,11 @@ tokio = { version = "1.33", features = ["full"] }
 [dependencies.lib-common]
 features = ["grpc"]
 git      = "https://github.com/aetheric-oss/lib-common.git"
-tag      = "latest-develop"
+tag      = "v2.0.0"
 
 [dependencies.svc-scheduler-client-grpc]
 git = "https://github.com/aetheric-oss/svc-scheduler"
-tag = "latest-develop"
+tag = "v0.5.0"
 
 [[example]]
 name = "rest"

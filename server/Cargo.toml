@@ -58,11 +58,11 @@ tower-http     = { version = "0.4", features = ["cors", "trace"] }
 
 [dependencies.svc-scheduler-client-grpc]
 git = "https://github.com/aetheric-oss/svc-scheduler.git"
-tag = "latest-develop"
+tag = "v0.5.0"
 
 [dependencies.svc-pricing-client-grpc]
 git = "https://github.com/aetheric-oss/svc-pricing"
-tag = "latest-develop"
+tag = "v0.6.0"
 
 [dependencies.svc-storage-client-grpc]
 features = [
@@ -72,20 +72,21 @@ features = [
   "parcel",
   "vehicle",
   "flight_plan",
+  "itinerary",
   "flight_plan_parcel",
   "group",
 ]
 git = "https://github.com/aetheric-oss/svc-storage"
-tag = "latest-develop"
+tag = "v0.12.0"
 
 [dependencies.lib-common]
 features = ["grpc"]
 git      = "https://github.com/aetheric-oss/lib-common"
-tag      = "latest-develop"
+tag      = "v2.0.0"
 
 [dependencies.svc-contact-client-grpc]
 git = "https://github.com/aetheric-oss/svc-contact"
-tag = "latest-develop"
+tag = "v0.1.0"
 
 [dependencies.log4rs]
 features = [

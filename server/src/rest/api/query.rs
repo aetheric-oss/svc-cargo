@@ -41,9 +41,9 @@ impl TryFrom<parcel_scan::Object> for CargoScan {
         Ok(CargoScan {
             parcel_id: obj.id,
             scanner_id: data.scanner_id,
-            latitude: geo_location.latitude,
-            longitude: geo_location.longitude,
-            altitude: geo_location.altitude,
+            latitude: geo_location.y,
+            longitude: geo_location.x,
+            altitude: geo_location.z,
             timestamp: created_at.into(),
         })
     }
@@ -70,14 +70,14 @@ impl TryFrom<vertiport::Object> for Vertiport {
             VertiportError::Location
         })?;
 
-        let exterior = location.exterior.ok_or_else(|| {
-            rest_error!("vertiport exterior is None.");
+        let ring = location.rings.first().ok_or_else(|| {
+            rest_error!("vertiport location rings is None.");
             VertiportError::Exterior
         })?;
 
-        let points = exterior.points;
-        let latitude = points.iter().map(|pt| pt.latitude).sum::<f64>() / points.len() as f64;
-        let longitude = points.iter().map(|pt| pt.longitude).sum::<f64>() / points.len() as f64;
+        let points = ring.points.clone();
+        let latitude = points.iter().map(|pt| pt.y).sum::<f64>() / points.len() as f64;
+        let longitude = points.iter().map(|pt| pt.x).sum::<f64>() / points.len() as f64;
 
         Ok(Vertiport {
             id: obj.id,
@@ -376,7 +376,7 @@ mod tests {
     use super::*;
     use lib_common::time::Utc;
     use lib_common::uuid::to_uuid;
-    use svc_storage_client_grpc::prelude::GeoPolygon;
+    use svc_storage_client_grpc::prelude::GeoPolygonZ;
 
     #[test]
     fn test_try_from_vertiport_object() {
@@ -409,10 +409,7 @@ mod tests {
 
         // invalid exterior
         let tmp = vertiport::Data {
-            geo_location: Some(GeoPolygon {
-                exterior: None,
-                interiors: vec![],
-            }),
+            geo_location: Some(GeoPolygonZ { rings: vec![] }),
             ..data.clone()
         };
         object.data = Some(tmp);

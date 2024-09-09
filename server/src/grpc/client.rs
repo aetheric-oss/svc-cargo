@@ -1,14 +1,11 @@
 //! gRPC client helpers implementation
 use tokio::sync::OnceCell;
 
+use svc_contact_client_grpc::prelude::Client as _;
 use svc_contact_client_grpc::prelude::ContactClient;
 use svc_pricing_client_grpc::prelude::PricingClient;
 use svc_scheduler_client_grpc::prelude::SchedulerClient;
 use svc_storage_client_grpc::prelude::Clients;
-
-use svc_contact_client_grpc::prelude::Client as _;
-// use svc_pricing_client_grpc::prelude::Client as _;
-// use svc_scheduler_client_grpc::prelude::Client as _;
 
 pub(crate) static CLIENTS: OnceCell<GrpcClients> = OnceCell::const_new();
 

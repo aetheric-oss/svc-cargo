@@ -366,9 +366,13 @@ pub async fn request_flight(
     //
     // Get pricing for each itinerary
     for itinerary in itineraries.iter_mut() {
-        itinerary.acquisition_vertiport_id = payload.origin_vertiport_id.clone();
-        itinerary.delivery_vertiport_id = payload.target_vertiport_id.clone();
-        itinerary.user_id = payload.user_id.clone();
+        itinerary
+            .acquisition_vertiport_id
+            .clone_from(&payload.origin_vertiport_id);
+        itinerary
+            .delivery_vertiport_id
+            .clone_from(&payload.target_vertiport_id);
+        itinerary.user_id.clone_from(&payload.user_id);
         itinerary.cargo_weight_g = payload.cargo_weight_g;
         update_pricing(&payload, itinerary, &mut grpc_clients).await?;
     }
@@ -411,7 +415,7 @@ mod tests {
     use lib_common::time::{Duration, Utc};
     use lib_common::uuid::Uuid;
     use svc_scheduler_client_grpc::prelude::scheduler_storage::flight_plan;
-    use svc_scheduler_client_grpc::prelude::scheduler_storage::{GeoLineString, GeoPoint};
+    use svc_scheduler_client_grpc::prelude::scheduler_storage::{GeoLineStringZ, GeoPointZ};
 
     #[test]
     fn test_time_constants() {
@@ -425,20 +429,22 @@ mod tests {
     #[test]
     fn test_flight_plan_object_to_return_type() {
         let mut data = flight_plan::mock::get_data_obj();
-        data.path = Some(GeoLineString {
+        data.path = Some(GeoLineStringZ {
             points: vec![
-                GeoPoint {
-                    latitude: 52.37488619450752,
-                    longitude: 4.916048576268328,
-                    altitude: 10.0,
+                GeoPointZ {
+                    x: 52.37488619450752,
+                    y: 4.916048576268328,
+                    z: 10.0,
                 },
-                GeoPoint {
-                    latitude: 52.37488619450752,
-                    longitude: 4.916048576268328,
-                    altitude: 10.0,
+                GeoPointZ {
+                    x: 52.37488619450752,
+                    y: 4.916048576268328,
+                    z: 10.0,
                 },
             ],
         });
+        data.origin_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
+        data.target_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
         data.origin_timeslot_start = Some(Utc::now().into());
         data.origin_timeslot_end = Some((Utc::now() + Duration::try_minutes(10).unwrap()).into());
         data.target_timeslot_start = Some((Utc::now() + Duration::try_hours(1).unwrap()).into());
@@ -470,13 +476,18 @@ mod tests {
 
     #[test]
     fn test_unpack_itineraries() {
-        let data = flight_plan::mock::get_data_obj();
+        let mut data = flight_plan::mock::get_data_obj();
+        // add vertiport ids since they're required here but not provided by the mock service since
+        // they are optional and are being deducted from the vertipads
+        data.origin_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
+        data.target_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
+
         let itineraries = vec![
             SchedulerItinerary {
-                flight_plans: vec![data.clone().into()],
+                flight_plans: vec![data.clone()],
             },
             SchedulerItinerary {
-                flight_plans: vec![data.clone().into()],
+                flight_plans: vec![data.clone()],
             },
         ];
 
@@ -489,11 +500,10 @@ mod tests {
                 flight_plans: vec![flight_plan::Data {
                     origin_vertiport_id: Some("invalid".to_string()),
                     ..data.clone()
-                }
-                .into()],
+                }],
             },
             SchedulerItinerary {
-                flight_plans: vec![data.clone().into()],
+                flight_plans: vec![data.clone()],
             },
         ];
 

@@ -28,7 +28,7 @@ async fn test_server_requests_and_logs() {
         let result = imp.is_ready(tonic::Request::new(ReadyRequest {})).await;
         assert!(result.is_ok());
         let result: ReadyResponse = result.unwrap().into_inner();
-        assert_eq!(result.ready, true);
+        assert!(result.ready);
 
         // Search for the expected log message
         let expected = get_log_string("is_ready", name);

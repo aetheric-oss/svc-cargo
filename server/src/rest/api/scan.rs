@@ -60,10 +60,10 @@ pub async fn scan_parcel(
     let data = CargoScanData {
         scanner_id: payload.scanner_id,
         parcel_id: payload.parcel_id,
-        geo_location: Some(GeoPoint {
-            latitude: payload.longitude,
-            longitude: payload.latitude,
-            altitude: payload.altitude,
+        geo_location: Some(GeoPointZ {
+            y: payload.latitude,
+            x: payload.longitude,
+            z: payload.altitude,
         }),
         created_at: Some(Utc::now().into()),
     };

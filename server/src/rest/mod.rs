@@ -39,7 +39,7 @@ use utoipa::OpenApi;
             rest_types::QueryScheduleRequest,
             rest_types::QueryScheduleResponse,
             rest_types::QueryParcelResponse,
-            rest_types::GeoPoint,
+            rest_types::GeoPointZ,
             rest_types::PaymentInfo,
             rest_types::InvoiceItem
         )

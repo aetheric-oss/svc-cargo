@@ -11,7 +11,8 @@ This microservice allows external processes to make requests to the network thro
 | Attribute     | Description                                                                    |
 | ------------- |--------------------------------------------------------------------------------|
 | Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
-| Status        | Draft                                                                          |
+| Status        | Draft     
+| Stuckee | A.M. Smith ([@amsmith-pro](https://github.com/amsmith-pro))
 
 :exclamation: This document is intended for internal use.
 

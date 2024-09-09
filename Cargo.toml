@@ -3,7 +3,7 @@ members  = ["server", "client-grpc", "client-rest"]
 resolver = "2"
 
 [workspace.package]
-authors      = ["Aetheric <info@aetheric.nl>"]
+authors      = ["A.M. Smith <alex@aetheric.nl>"]
 edition      = "2021"
 homepage     = "https://www.aetheric.nl"
 license-file = "LICENSE"

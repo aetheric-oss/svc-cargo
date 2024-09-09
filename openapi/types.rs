@@ -1,15 +1,16 @@
 use lib_common::time::{DateTime, Utc};
 use lib_common::uuid::to_uuid;
+use num_traits::FromPrimitive;
 /// Types used for REST communication with the svc-cargo server
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
-use num_traits::FromPrimitive;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use utoipa::{IntoParams, ToSchema};
 
 /// TODO(R5): Import payment type enums from svc-payment
 /// pub use svc_payment_client_grpc::prelude::payment::{PaymentType, CreditCardInfo};
-
-pub use svc_scheduler_client_grpc::prelude::scheduler_storage::{GeoPoint, GeoLineString, flight_plan::Data as SchedulerFlightPlan};
+pub use svc_scheduler_client_grpc::prelude::scheduler_storage::{
+    flight_plan::Data as SchedulerFlightPlan, GeoLineStringZ, GeoPointZ,
+};
 
 /// Don't allow overly large numbers of occupations to be returned
 pub const MAX_LANDINGS_TO_RETURN: u32 = 50;
@@ -30,7 +31,7 @@ pub struct FlightPlan {
     pub target_vertipad_id: String,
 
     /// The path of the flight plan
-    pub path: Vec<GeoPoint>,
+    pub path: Vec<GeoPointZ>,
 
     /// The end of the window of departure
     pub origin_timeslot_start: DateTime<Utc>,
@@ -48,7 +49,7 @@ pub struct FlightPlan {
     pub vehicle_id: String,
 
     /// The priority of the flight plan
-    pub flight_priority: i32
+    pub flight_priority: i32,
 }
 
 /// Flight Plan Error
@@ -110,14 +111,15 @@ impl TryFrom<FlightPlan> for SchedulerFlightPlan {
     type Error = FlightPlanError;
 
     fn try_from(flight_plan: FlightPlan) -> Result<Self, Self::Error> {
-        let flight_priority = FromPrimitive::from_i32(flight_plan.flight_priority).ok_or(FlightPlanError::FlightPriority)?;
+        let flight_priority = FromPrimitive::from_i32(flight_plan.flight_priority)
+            .ok_or(FlightPlanError::FlightPriority)?;
 
         Ok(SchedulerFlightPlan {
             origin_vertiport_id: Some(flight_plan.origin_vertiport_id),
             origin_vertipad_id: flight_plan.origin_vertipad_id,
             target_vertiport_id: Some(flight_plan.target_vertiport_id),
             target_vertipad_id: flight_plan.target_vertipad_id,
-            path: Some(GeoLineString {
+            path: Some(GeoLineStringZ {
                 points: flight_plan.path,
             }),
             target_timeslot_start: Some(flight_plan.target_timeslot_start.into()),
@@ -149,10 +151,7 @@ impl TryFrom<SchedulerFlightPlan> for FlightPlan {
         to_uuid(&flight_plan.origin_vertipad_id).ok_or(FlightPlanError::OriginVertipadId)?;
         to_uuid(&flight_plan.target_vertipad_id).ok_or(FlightPlanError::TargetVertipadId)?;
 
-        let path = flight_plan
-            .path
-            .ok_or(FlightPlanError::Path)?
-            .points;
+        let path = flight_plan.path.ok_or(FlightPlanError::Path)?.points;
 
         let target_timeslot_start = flight_plan
             .target_timeslot_start
@@ -207,7 +206,7 @@ pub struct QueryItineraryRequest {
 
     /// The User ID
     /// TODO(R5): Get his from ACL module
-    pub user_id: String
+    pub user_id: String,
 }
 
 /// Request Body Information for Flight Query
@@ -351,8 +350,7 @@ pub struct PaymentInfo {
     pub currency_unit: CurrencyUnit,
 
     /// Date
-    pub timestamp: DateTime<Utc>
-
+    pub timestamp: DateTime<Utc>,
     // /// Method
     // pub method: PaymentType
 }
@@ -377,13 +375,11 @@ pub struct QueryScheduleResponse {
     pub occupations: Vec<Occupation>,
 }
 
-
 /// Information about a parcel
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct CargoInfo {
     /// the unique UUID of the parcel or passenger
     pub parcel_id: String,
-
     // /// the nickname of the parcel or passenger
     // pub cargo_nickname: Option<String>
 
@@ -437,7 +433,7 @@ pub struct CargoScan {
     pub altitude: f64,
 
     /// The timestamp of the scan
-    pub timestamp: DateTime<Utc>
+    pub timestamp: DateTime<Utc>,
 }
 
 /// Tracking Information Response
@@ -454,8 +450,11 @@ mod tests {
 
     #[test]
     fn test_flight_plan_try_from() {
+        let mut data: SchedulerFlightPlan = flight_plan::mock::get_data_obj();
+        data.origin_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
+        data.target_vertiport_id = Some(lib_common::uuid::Uuid::new_v4().to_string());
+
         // valid
-        let data: SchedulerFlightPlan = flight_plan::mock::get_data_obj();
         FlightPlan::try_from(data.clone()).unwrap();
 
         // No origin vertiport ID
@@ -463,96 +462,162 @@ mod tests {
             origin_vertiport_id: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::OriginVertiportId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::OriginVertiportId
+        );
 
         // Invalid origin vertiport ID
         let tmp = SchedulerFlightPlan {
             origin_vertiport_id: Some("invalid".to_string()),
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::OriginVertiportId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::OriginVertiportId
+        );
 
         // no target vertiport ID
         let tmp = SchedulerFlightPlan {
             target_vertiport_id: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::TargetVertiportId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::TargetVertiportId
+        );
 
         // invalid target vertiport ID
         let tmp = SchedulerFlightPlan {
             target_vertiport_id: Some("invalid".to_string()),
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::TargetVertiportId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::TargetVertiportId
+        );
 
         // invalid vehicle ID
         let tmp = SchedulerFlightPlan {
             vehicle_id: "invalid".to_string(),
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::VehicleId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::VehicleId
+        );
 
         // invalid origin vertipad ID
         let tmp = SchedulerFlightPlan {
             origin_vertipad_id: "invalid".to_string(),
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::OriginVertipadId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::OriginVertipadId
+        );
 
         // invalid target vertipad ID
         let tmp = SchedulerFlightPlan {
             target_vertipad_id: "invalid".to_string(),
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::TargetVertipadId);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::TargetVertipadId
+        );
 
         // invalid path
         let tmp = SchedulerFlightPlan {
             path: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::Path);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::Path
+        );
 
-        // invalid target timeslot 
+        // invalid target timeslot
         let tmp = SchedulerFlightPlan {
             target_timeslot_start: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::TargetTimeslotStart);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::TargetTimeslotStart
+        );
 
         let tmp = SchedulerFlightPlan {
             target_timeslot_end: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::TargetTimeslotEnd);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::TargetTimeslotEnd
+        );
 
         // invalid origin timeslot
         let tmp = SchedulerFlightPlan {
             origin_timeslot_start: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::OriginTimeslotStart);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::OriginTimeslotStart
+        );
 
         let tmp = SchedulerFlightPlan {
             origin_timeslot_end: None,
             ..data.clone()
         };
-        assert_eq!(FlightPlan::try_from(tmp).unwrap_err(), FlightPlanError::OriginTimeslotEnd);
+        assert_eq!(
+            FlightPlan::try_from(tmp).unwrap_err(),
+            FlightPlanError::OriginTimeslotEnd
+        );
     }
 
     #[test]
     fn test_flight_plan_error_display() {
-        assert_eq!(format!("{}", FlightPlanError::OriginVertiportId), "Invalid Origin Vertiport ID");
-        assert_eq!(format!("{}", FlightPlanError::TargetVertiportId), "Invalid Target Vertiport ID");
-        assert_eq!(format!("{}", FlightPlanError::VehicleId), "Invalid Vehicle ID");
-        assert_eq!(format!("{}", FlightPlanError::OriginVertipadId), "Invalid Origin Vertipad ID");
-        assert_eq!(format!("{}", FlightPlanError::TargetVertipadId), "Invalid Target Vertipad ID");
+        assert_eq!(
+            format!("{}", FlightPlanError::OriginVertiportId),
+            "Invalid Origin Vertiport ID"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::TargetVertiportId),
+            "Invalid Target Vertiport ID"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::VehicleId),
+            "Invalid Vehicle ID"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::OriginVertipadId),
+            "Invalid Origin Vertipad ID"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::TargetVertipadId),
+            "Invalid Target Vertipad ID"
+        );
         assert_eq!(format!("{}", FlightPlanError::Path), "Invalid Path");
-        assert_eq!(format!("{}", FlightPlanError::TargetTimeslotStart), "Invalid Target Timeslot Start");
-        assert_eq!(format!("{}", FlightPlanError::TargetTimeslotEnd), "Invalid Target Timeslot End");
-        assert_eq!(format!("{}", FlightPlanError::OriginTimeslotStart), "Invalid Origin Timeslot Start");
-        assert_eq!(format!("{}", FlightPlanError::OriginTimeslotEnd), "Invalid Origin Timeslot End");
-        assert_eq!(format!("{}", FlightPlanError::FlightPriority), "Invalid Flight Priority");
+        assert_eq!(
+            format!("{}", FlightPlanError::TargetTimeslotStart),
+            "Invalid Target Timeslot Start"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::TargetTimeslotEnd),
+            "Invalid Target Timeslot End"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::OriginTimeslotStart),
+            "Invalid Origin Timeslot Start"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::OriginTimeslotEnd),
+            "Invalid Origin Timeslot End"
+        );
+        assert_eq!(
+            format!("{}", FlightPlanError::FlightPriority),
+            "Invalid Flight Priority"
+        );
     }
 }

@@ -47,7 +47,6 @@ impl RpcService for ServerImpl {
 ///     Ok(())
 /// }
 /// ```
-// Will be tested in integration tests.
 pub async fn grpc_server(config: Config, shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>) {
     grpc_debug!("entry.");
 
@@ -132,7 +131,7 @@ mod tests {
         let result = imp.is_ready(Request::new(ReadyRequest {})).await;
         assert!(result.is_ok());
         let result: ReadyResponse = result.unwrap().into_inner();
-        assert_eq!(result.ready, true);
+        assert!(result.ready);
 
         ut_info!("success");
     }
