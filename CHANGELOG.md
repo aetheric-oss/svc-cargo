@@ -1,3 +1,37 @@
+## [Release 0.11.0](https://github.com/aetheric-oss/svc-cargo/releases/tag/v0.11.0)
+
+### ✨ Features
+
+- add get parcel scans endpoint ([`fc658b4`](https://github.com/aetheric-oss/svc-cargo/commit/fc658b4f7405771a9363126c05d3293c17de83b1))
+- add redis connection, update scheduler deps ([`66d51ce`](https://github.com/aetheric-oss/svc-cargo/commit/66d51cef907c6f93527d5e5778f6dcaac6c21a84))
+- add call to svc-contact for confirmation email ([`4112aa2`](https://github.com/aetheric-oss/svc-cargo/commit/4112aa206cc72c1bb5f65b845788bc75f0b4454f))
+- remove time arrival window ([`cbb39c8`](https://github.com/aetheric-oss/svc-cargo/commit/cbb39c8e41e423ad93818d56774304d77ed3d75c))
+- update arrowair nocodb references ([`55a35c7`](https://github.com/aetheric-oss/svc-cargo/commit/55a35c7a4434a201e453a3ca6007b82533e78fd4))
+- final cleanup ([`8253895`](https://github.com/aetheric-oss/svc-cargo/commit/825389564d988b71af088eae245a7794488badf7))
+
+### 🐛 Fixes
+
+- don't expose flight plan storage data, fix docker file ([`a59721f`](https://github.com/aetheric-oss/svc-cargo/commit/a59721f698b707f40447e0f03f43200b2beebe85))
+- get vertiport IDs, not provided by default ([`ed79e11`](https://github.com/aetheric-oss/svc-cargo/commit/ed79e11c10d769367de3efd9cdc66cc1ce6e2f52))
+- add unwrap error log to config try ([`1cefa7e`](https://github.com/aetheric-oss/svc-cargo/commit/1cefa7e5f7c726439607606e65068d293ddba295))
+- rest API schemes ([`976fd88`](https://github.com/aetheric-oss/svc-cargo/commit/976fd88eaa614701659b50ca74b91e6b104f8cd8))
+- update no_coverage releases ([`3428f4d`](https://github.com/aetheric-oss/svc-cargo/commit/3428f4d9d55f1a938761da4304067979d2ccde26))
+- authors in docs and Cargo file ([`f6c45e8`](https://github.com/aetheric-oss/svc-cargo/commit/f6c45e89b30b2f1c15298003ec865cc4ff61004f))
+
+### 🛠 Maintenance
+
+- terraform provisioned file changes ([`2851eb3`](https://github.com/aetheric-oss/svc-cargo/commit/2851eb34e5455fecb5e52143a829cc2a0437ea2e))
+- reviewer comments ([`335a0d6`](https://github.com/aetheric-oss/svc-cargo/commit/335a0d68b6e69387ddd8810909ecb1e648f71813))
+- bring repo in line with template ([`f0d0fae`](https://github.com/aetheric-oss/svc-cargo/commit/f0d0faef69f2d42f523cef159fc61ec0f5c4347b))
+- tofu provisioned file changes ([`272c098`](https://github.com/aetheric-oss/svc-cargo/commit/272c098f2d4a439baebdc3d21d682d218d410831))
+- update duration to try_ method ([`b827f06`](https://github.com/aetheric-oss/svc-cargo/commit/b827f062841d339c54e634107721ebffe3f47dfb))
+- update dependencies ([`4d5dce5`](https://github.com/aetheric-oss/svc-cargo/commit/4d5dce581bcb78edbfad062dfe185a795e5f06d5))
+- reviewer comments ([`551d14a`](https://github.com/aetheric-oss/svc-cargo/commit/551d14a5a036bd3d3df56611653ad5d823f9106c))
+- fix logging messages ([`5a24470`](https://github.com/aetheric-oss/svc-cargo/commit/5a24470f0f547d9799df210cbb9db12c265d8707))
+- cleanup and update unit tests ([`1b05ff7`](https://github.com/aetheric-oss/svc-cargo/commit/1b05ff77c6e1c40fc0a1fb65399a09c5da00e519))
+- remove function prepend, automatic now with lib-common ([`d68eabd`](https://github.com/aetheric-oss/svc-cargo/commit/d68eabdeb4362242fa405c281192c543716dba6c))
+- reviewer comments 1 ([`41a7901`](https://github.com/aetheric-oss/svc-cargo/commit/41a7901b5736914cff12cc50c1defb0864305bc6))
+
 ## [Release 0.10.0](https://github.com/Arrow-air/svc-cargo/releases/tag/v0.10.0)
 
 ### ✨ Features
