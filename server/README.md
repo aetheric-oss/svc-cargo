@@ -1,16 +1,11 @@
-![Arrow Banner](https://github.com/Arrow-air/.github/raw/main/profile/assets/arrow_v2_twitter-banner_neu.png)
+![Aetheric Banner](https://github.com/aetheric-oss/.github/raw/main/assets/readme-banner.png)
 
-# `svc-cargo`
+# svc-cargo Service
 
-![GitHub stable release (latest by date)](https://img.shields.io/github/v/release/Arrow-air/svc-cargo?sort=semver&color=green)
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/Arrow-air/svc-cargo?include_prereleases)
-![Sanity Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=develop)
-![Rust
-Checks](https://github.com/arrow-air/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=develop)
-![Python Flake8](https://github.com/arrow-air/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=develop)
-![Arrow DAO
-Discord](https://img.shields.io/discord/853833144037277726?style=plastic)
+![GitHub stable release (latest by date)](https://img.shields.io/github/v/release/aetheric-oss/svc-cargo?sort=semver&color=green) ![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/aetheric-oss/svc-cargo?include_prereleases) [![Coverage Status](https://coveralls.io/repos/github/aetheric-oss/svc-cargo/badge.svg?branch=develop)](https://coveralls.io/github/aetheric-oss/svc-cargo)
+![Sanity Checks](https://github.com/aetheric-oss/svc-cargo/actions/workflows/sanity_checks.yml/badge.svg?branch=develop) ![Python PEP8](https://github.com/aetheric-oss/svc-cargo/actions/workflows/python_ci.yml/badge.svg?branch=develop) ![Rust Checks](https://github.com/aetheric-oss/svc-cargo/actions/workflows/rust_ci.yml/badge.svg?branch=develop) 
+![Arrow DAO Discord](https://img.shields.io/discord/853833144037277726?style=plastic)
 
-## :telescope: Overview
+## Overview
 
 This service hosts a public REST interface for external applications to make cargo shipping requests to the network.

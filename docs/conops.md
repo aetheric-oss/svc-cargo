@@ -1,4 +1,4 @@
-![Arrow Banner](https://github.com/Arrow-air/tf-github/raw/main/src/templates/doc-banner-services.png)
+![Aetheric Banner](https://github.com/aetheric-oss/.github/raw/main/assets/doc-banner.png)
 
 # Concept of Operations - `svc-cargo`
 
@@ -8,10 +8,11 @@ This microservice allows external processes to make requests to the network thro
 
 ### Metadata
 
-Item | Value
---- | ---
-Maintainer(s) | @arrow-air/services
-Stuckee | A.M. Smith ([@ServiceDog](https://github.com/ServiceDog))
+| Attribute     | Description                                                                    |
+| ------------- |--------------------------------------------------------------------------------|
+| Maintainer(s) | [@aetheric-oss/dev-realm](https://github.com/orgs/aetheric-oss/teams/dev-realm)|
+| Status        | Draft     
+| Stuckee | A.M. Smith ([@amsmith-pro](https://github.com/amsmith-pro))
 
 :exclamation: This document is intended for internal use.
 
@@ -59,7 +60,6 @@ grpc <-- Request/Confirm/Cancel Flight --> schedule
 grpc <-- Itinerary Costs --> pricing
 grpc <-- Get Vertiports --> storage
 ```
-</center>
 
 `svc-cargo` exposes a REST API for external applications to make cargo-related requests. External applications include websites and mobile applications.
 
@@ -73,9 +73,9 @@ A full description of interfaces can be found in the [ICD](./icd.md).
 
 Document | Description
 --- | ---
-| [High-Level Concept of Operations (CONOPS)](https://github.com/Arrow-air/se-services/blob/develop/docs/conops.md) | Overview of Arrow microservices.                             |
-| [High-Level Interface Control Document (ICD)](https://github.com/Arrow-air/se-services/blob/develop/docs/icd.md)  | Interfaces and frameworks common to all Arrow microservices. |
-[Requirements - `svc-cargo`](https://nocodb.arrowair.com/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements and user stories for this microservice.
+| [High-Level Concept of Operations (CONOPS)](https://github.com/aetheric-oss/se-services/blob/develop/docs/conops.md) | Overview of Aetheric microservices.                             |
+| [High-Level Interface Control Document (ICD)](https://github.com/aetheric-oss/se-services/blob/develop/docs/icd.md)  | Interfaces and frameworks common to all Aetheric microservices. |
+[Requirements - `svc-cargo`](https://nocodb.aetheric.nl/dashboard/#/nc/view/e2768805-2034-42e2-a7d5-8884c841d8a3) | Requirements and user stories for this microservice.
 [Software Design Document - `svc-cargo`](./sdd.md) | Defines the implementation of this interface.
 [Interface Control Document (ICD) - `svc-cargo`](./icd.md) | Defines the inputs and outputs of this microservice.
 
@@ -116,8 +116,8 @@ client <-- Request<br>Confirm<br>Modify<br>Cancel --> ops
 - Query available flights
 - Receive flight information
 - Confirm flights
-- Modify confirmed flights
-- Cancel confirmed flights
+- Modify created flights
+- Cancel created flights
 
 #### 3.1.2 Regional Data
 
@@ -136,7 +136,6 @@ end
 
 ops -- Vertiports --> client
 ```
-</center>
 
 The service exposes an interface to request:
 - A list of vertiports for a region, including names and coordinates

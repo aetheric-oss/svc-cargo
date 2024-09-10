@@ -1,55 +1,123 @@
 #[macro_use]
 pub mod macros;
-pub mod api;
 pub mod server;
 
-use crate::rest_types;
-use svc_scheduler_client_grpc::prelude::scheduler_storage::GeoPoint;
+pub(crate) mod api;
+use api::*;
+
+use std::fmt::{self, Display, Formatter};
 use utoipa::OpenApi;
 
-#[derive(OpenApi)]
+/// OpenAPI 3.0 specification for this service
+#[derive(OpenApi, Copy, Clone, Debug)]
 #[openapi(
     paths(
-        api::request::request_flight,
-        api::query::query_vertiports,
-        api::confirm::confirm_itinerary,
-        api::cancel::cancel_itinerary,
-        api::scan::scan_parcel,
-        api::query::query_landings,
-        api::health::health_check
+        request::request_flight,
+        query::query_vertiports,
+        create::create_itinerary,
+        cancel::cancel_itinerary,
+        scan::scan_parcel,
+        query::query_occupations,
+        query::query_scans,
+        health::health_check
     ),
     components(
         schemas(
             rest_types::Itinerary,
-            rest_types::FlightLeg,
+            rest_types::FlightPlan,
             rest_types::Vertiport,
-            rest_types::ConfirmStatus,
-            rest_types::VertiportsQuery,
-            rest_types::ItineraryCancel,
-            rest_types::FlightRequest,
-            rest_types::ItineraryConfirm,
-            rest_types::ItineraryConfirmation,
-            rest_types::ParcelScan,
+            rest_types::QueryVertiportsRequest,
+            rest_types::ItineraryCancelRequest,
+            rest_types::QueryItineraryRequest,
+            rest_types::DraftItinerary,
+            rest_types::ItineraryCreateRequest,
+            rest_types::CargoScan,
             rest_types::TimeWindow,
-            rest_types::Landing,
-            rest_types::LandingsQuery,
-            rest_types::LandingsResponse,
-            GeoPoint
+            rest_types::Occupation,
+            rest_types::CargoInfo,
+            rest_types::CurrencyUnit,
+            rest_types::QueryScheduleRequest,
+            rest_types::QueryScheduleResponse,
+            rest_types::QueryParcelResponse,
+            rest_types::GeoPointZ,
+            rest_types::PaymentInfo,
+            rest_types::InvoiceItem
         )
     ),
     tags(
         (name = "svc-cargo", description = "svc-cargo REST API")
     )
 )]
-struct ApiDoc;
+pub struct ApiDoc;
 
-/// Create OpenAPI3 Specification File
-pub fn generate_openapi_spec(target: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let output = ApiDoc::openapi()
-        .to_pretty_json()
-        .expect("(ERROR) unable to write openapi specification to json.");
+/// Errors with OpenAPI generation
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OpenApiError {
+    /// Failed to export as JSON string
+    Json,
 
-    std::fs::write(target, output).expect("(ERROR) unable to write json string to file.");
+    /// Failed to write to file
+    FileWrite,
+}
 
-    Ok(())
+impl std::error::Error for OpenApiError {}
+
+impl Display for OpenApiError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            OpenApiError::Json => write!(f, "Failed to export as JSON string"),
+            OpenApiError::FileWrite => write!(f, "Failed to write to file"),
+        }
+    }
+}
+
+/// Create OpenAPI 3.0 Specification File
+pub fn generate_openapi_spec<T>(target: &str) -> Result<(), OpenApiError>
+where
+    T: OpenApi,
+{
+    #[cfg(not(tarpaulin_include))]
+    // no_coverage: (R5) no way to make JSON export fail
+    let output = T::openapi().to_pretty_json().map_err(|e| {
+        rest_error!("failed to export as JSON string: {e}");
+        OpenApiError::Json
+    })?;
+
+    std::fs::write(target, output).map_err(|e| {
+        rest_error!("failed to write to file: {e}");
+        OpenApiError::FileWrite
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_openapi_spec() {
+        let target = "/nonsense/";
+        let error = generate_openapi_spec::<ApiDoc>(target).unwrap_err();
+        assert_eq!(error, OpenApiError::FileWrite);
+
+        // TODO(R5): Is it possible to make the JSON export fail?
+        // #[derive(OpenApi)]
+        // #[openapi(
+        //     paths(invalid)
+        // )]
+        // struct InvalidApi;
+        // let error = generate_openapi_spec::<InvalidApi>("test.json").unwrap_err();
+        // assert_eq!(error, OpenApiError::Json);
+    }
+
+    #[test]
+    fn test_openapi_error_display() {
+        assert_eq!(
+            format!("{}", OpenApiError::Json),
+            "Failed to export as JSON string"
+        );
+        assert_eq!(
+            format!("{}", OpenApiError::FileWrite),
+            "Failed to write to file"
+        );
+    }
 }

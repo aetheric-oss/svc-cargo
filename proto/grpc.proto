@@ -8,13 +8,14 @@ service RpcService {
     rpc isReady (ReadyRequest) returns (ReadyResponse);
 }
 
-// Checks if this service is ready
+// Ready Request object
 message ReadyRequest {
     // No arguments
 }
 
-// Indicates if this service is ready
+// Ready Response object
 message ReadyResponse {
+
     // True if ready
     bool ready = 1;
 }

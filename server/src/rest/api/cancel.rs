@@ -1,8 +1,9 @@
-use super::utils::is_uuid;
+use super::rest_types::ItineraryCancelRequest;
 use crate::grpc::client::GrpcClients;
-use crate::rest_types::ItineraryCancel;
 use axum::{extract::Extension, Json};
 use hyper::StatusCode;
+use lib_common::uuid::to_uuid;
+use svc_scheduler_client_grpc::prelude::scheduler_storage::flight_plan::FlightPriority;
 use svc_scheduler_client_grpc::prelude::SchedulerServiceClient;
 use svc_storage_client_grpc::prelude::*;
 
@@ -17,80 +18,122 @@ use svc_storage_client_grpc::prelude::*;
         (status = 500, description = "svc-scheduler returned error"),
         (status = 503, description = "Could not connect to other microservice dependencies")
     ),
-    request_body = ItineraryCancel
+    request_body = ItineraryCancelRequest
 )]
 pub async fn cancel_itinerary(
     Extension(grpc_clients): Extension<GrpcClients>,
-    Json(payload): Json<ItineraryCancel>,
+    Json(payload): Json<ItineraryCancelRequest>,
 ) -> Result<(), StatusCode> {
-    rest_debug!("(cancel_itinerary) entry.");
-    let itinerary_id = payload.id;
-    if !is_uuid(&itinerary_id) {
-        let error_msg = "itinerary ID not in UUID format.".to_string();
-        rest_error!("(cancel_itinerary) {}", &error_msg);
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    rest_debug!("entry.");
+
+    to_uuid(&payload.id).ok_or_else(|| {
+        rest_error!("itinerary ID not in UUID format.");
+        StatusCode::BAD_REQUEST
+    })?;
+
+    to_uuid(&payload.user_id).ok_or_else(|| {
+        rest_error!("user ID not in UUID format.");
+        StatusCode::BAD_REQUEST
+    })?;
 
     // Make request, process response
-    let response = match grpc_clients
+    grpc_clients
         .scheduler
-        .cancel_itinerary(svc_scheduler_client_grpc::client::Id {
-            id: itinerary_id.clone(),
+        .cancel_itinerary(svc_scheduler_client_grpc::client::CancelItineraryRequest {
+            priority: FlightPriority::Medium as i32,
+            itinerary_id: payload.id.clone(),
+            user_id: payload.user_id,
         })
         .await
-    {
-        Ok(response) => response.into_inner(),
-        Err(e) => {
-            let error_msg = "svc-scheduler request fail.".to_string();
-            rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+        .map_err(|e| {
+            rest_error!("svc-scheduler request fail. {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
-    if !response.cancelled {
-        let error_msg = "svc-scheduler cancel fail.".to_string();
-        rest_error!("(cancel_itinerary) {} {}", &error_msg, response.reason);
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    rest_info!("(cancel_itinerary) successfully cancelled itinerary.");
+    rest_info!("cancellation added to scheduler queue.");
 
     //
     // Get parcel from id
     //
     let filter =
-        AdvancedSearchFilter::search_equals("itinerary_id".to_string(), itinerary_id.clone());
+        AdvancedSearchFilter::search_equals("itinerary_id".to_string(), payload.id.clone());
 
-    let list = match grpc_clients.storage.parcel.search(filter).await {
-        Ok(response) => response.into_inner().list,
-        Err(e) => {
-            let error_msg = "svc-parcel-storage error.".to_string();
-            rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
+    let futures = grpc_clients
+        .storage
+        .parcel
+        .search(filter)
+        .await
+        .map_err(|e| {
+            rest_error!("svc-parcel-storage error {:?}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_inner()
+        .list
+        .into_iter()
+        .map(|parcel| async {
+            grpc_clients
+                .storage
+                .parcel
+                .delete(Id { id: parcel.id })
+                .await
+                .map_err(|e| {
+                    rest_error!("svc-storage error: {:?}", e);
+                })
+        })
+        .collect::<Vec<_>>();
 
-    // An itinerary might have multiple parcels
-    // TODO(R4): Push these onto a queue in case any one fails
-    let mut ok = true;
-    for parcel in list.into_iter() {
-        let _ = grpc_clients
-            .storage
-            .parcel
-            .delete(Id { id: parcel.id })
+    {
+        if !futures::future::join_all(futures)
             .await
-            .map_err(|e| {
-                let error_msg = "svc-parcel-storage error.".to_string();
-                rest_error!("(cancel_itinerary) {} {:?}", &error_msg, e);
-                // Still try to delete other parcels
-                ok = false;
-            });
-    }
-
-    if !ok {
-        rest_error!("(cancel_itinerary) could not delete all parcels.");
+            .into_iter()
+            .all(|r| r.is_ok())
+        {
+            rest_error!("could not delete all parcels.");
+        }
     }
 
     // If the customer's itinerary was cancelled, but the parcels were not, it's still a success for them
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_cancel_itinerary() {
+        let config = crate::config::Config::default();
+        let grpc_clients = GrpcClients::default(config);
+
+        // invalid itinerary UUID
+        let payload = ItineraryCancelRequest {
+            id: "".to_string(),
+            user_id: "00000000-0000-0000-0000-000000000000".to_string(),
+        };
+
+        let result = cancel_itinerary(Extension(grpc_clients.clone()), Json(payload))
+            .await
+            .unwrap_err();
+        assert_eq!(result, StatusCode::BAD_REQUEST);
+
+        // invalid user UUID
+        let payload = ItineraryCancelRequest {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+            user_id: "".to_string(),
+        };
+
+        let result = cancel_itinerary(Extension(grpc_clients.clone()), Json(payload))
+            .await
+            .unwrap_err();
+        assert_eq!(result, StatusCode::BAD_REQUEST);
+
+        let payload = ItineraryCancelRequest {
+            id: "00000000-0000-0000-0000-000000000000".to_string(),
+            user_id: "00000000-0000-0000-0000-000000000000".to_string(),
+        };
+
+        cancel_itinerary(Extension(grpc_clients), Json(payload))
+            .await
+            .unwrap();
+    }
 }
